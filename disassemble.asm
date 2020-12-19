@@ -130,6 +130,271 @@ Disassemble_Next:
 OpCodeRun:
 	fillword 0 : fill 512
 
+PushToStack:
+.RTI
+	JSR .REG_P
+
+.RTL
+	JSR .PROGRAM_BANK
+	REP #$20
+	LDA.b DP.ROM_READ
+	INC
+	BRA ++
+
+.RTS
+	REP #$20
+	LDA.b DP.ROM_READ
+++	INC
+	INC
+	BRA .push_2
+
+.REG_P
+	SEP #$20
+	LDA.b DP.REG_P
+	BRA .push_1
+
+.REG_D
+	REP #$20
+	LDA.b DP.REG_D
+	BRA .push_1
+
+.PROGRAM_BANK
+	SEP #$20
+	LDA.b DP.ROM_READ.b
+	BRA .push_1
+
+.DATA_BANK
+	SEP #$20
+	LDA.b DP.REG_DB
+	BRA .push_1
+
+.address
+	REP #$30
+	LDY.w #1
+	LDA.b [DP.ROM_READ], Y
+	BRA .push_2
+
+.REG_X
+	REP #$20
+	LDA.b DP.REG_X
+	BRA .test_px
+
+.REG_Y
+	REP #$20
+	LDA.b DP.REG_Y
+	BRA .test_px
+
+.REG_A
+	REP #$20
+	LDA.b DP.REG_A
+
+; for A, REG_P.M will be tested in 8 bit for N flag
+	SEP #$20
+
+; for X and Y, REG_P.M will be tested in 16 bit
+; so it will actually be looking at REG_P.X for N flag
+.test_px
+	JSR Sync_REG_P
+
+	BIT.b DP.REG_P.M
+	SEP #$20
+	BMI .push_1
+
+.push_2
+	SEP #$20
+	XBA
+	STA.b [DP.REG_SR]
+
+	REP #$20
+	DEC.b DP.REG_SR
+
+	XBA
+
+.push_1
+	SEP #$20
+	STA.b [DP.REG_SR]
+
+	REP #$20
+	DEC.b DP.REG_SR
+
+	RTS
+
+PullFromStack:
+.RTI
+	JSR .RTL
+
+	; bleed into REG_P
+.REG_P
+	JSR .pull_1
+	PHA
+	PLP
+	JMP Save_REG_P
+
+.RTL
+	JSR .RTS
+	JSR .pull_1
+	STA.b DP.ROM_READ.b
+	RTS
+
+.RTS
+	JSR .pull_2
+	INC
+	STA.b DP.ROM_READ
+	RTS
+
+.REG_D
+	JSR .pull_2
+	STA.b DP.REG_D
+	JMP SetFlags_from_D
+
+.DATA_BANK
+	JSR .pull_1
+	STA.b DP.REG_DB
+	RTS
+
+.REG_A
+	JSR Sync_REG_P
+	SEP #$20
+	BIT.b DP.REG_P.M
+	BPL ..do2
+
+	JSR .pull_1
+	BRA ..save
+
+..do2
+	JSR .pull_2
+
+..save
+	STA.b DP.REG_A
+	JMP SetFlags_from_A
+
+.REG_X
+	JSR Sync_REG_P
+	SEP #$20
+	BIT.b DP.REG_P.X
+	BPL ..do2
+
+	JSR .pull_1
+	BRA ..save
+
+..do2
+	JSR .pull_2
+
+..save
+	STA.b DP.REG_X
+	JMP SetFlags_from_X
+
+.REG_Y
+	JSR Sync_REG_P
+	SEP #$20
+	BIT.b DP.REG_P.X
+	BPL ..do2
+
+	JSR .pull_1
+	BRA ..save
+
+..do2
+	JSR .pull_2
+
+..save
+	STA.b DP.REG_Y
+	JMP SetFlags_from_Y
+
+.pull_1
+	REP #$20
+	INC.b DP.REG_SR
+
+	SEP #$20
+	LDA.b [DP.REG_SR]
+
+	RTS
+
+.pull_2
+	REP #$20
+	INC.b DP.REG_SR
+	LDA.b [DP.REG_SR]
+
+	INC.b DP.REG_SR
+	RTS
+
+Collect_REG_P:
+	SEP #$20
+	LDA.b DP.REG_P
+	PHA
+	PLP
+	RTS
+
+SetFlags:
+.from_B
+	SEP #$20
+	LDA.b DP.REG_DB
+	BRA .continueA
+
+.from_D
+	REP #$30
+	LDA.b DP.REG_D
+	BRA .continueA
+
+.from_A
+	REP #$20
+	LDA.b DP.REG_A
+
+.continueA
+	STA.b DP.TEST
+	JSR Collect_REG_P
+	LDA.b DP.TEST
+	BRA Save_REG_P
+
+.from_X
+	REP #$20
+	LDA.b DP.REG_X
+	BRA .continueX
+
+.from_Y
+	REP #$20
+	LDA.b DP.REG_Y
+
+.preset
+.continueX
+	STA.b DP.TEST
+	JSR Collect_REG_P
+	LDX.b DP.TEST
+
+Save_REG_P:
+	PHP
+	SEP #$20
+	PLA
+	STA.b DP.REG_P
+
+Sync_REG_P:
+	PHA
+	PHX
+	PHY
+	PHP
+	SEP #$30
+	LDX.b #8
+	LDA.b DP.REG_P
+
+.next
+	LSR
+	ROR.b DP.REG_P, X
+	DEX
+	BNE .next
+
+	BIT.b DP.REG_P.X
+	BPL .index_fine
+
+	; zero high byte when X=1
+	STZ.b DP.REG_X+1
+	STZ.b DP.REG_Y+1
+
+.index_fine
+	PLP
+	PLY
+	PLX
+	PLA
+	RTS
+
 OpCode_NMIWAIT:
 	SEP #$10
 	LDY.b #$80
@@ -1119,6 +1384,7 @@ IsolateAndExecuteSafely:
 	REP #$20
 	BRA .not_register
 
+	; TODO prevent writes to bank7F?
 .notwram
 	LDA.b DP.SCRATCH
 	CMP.w #$4400 : BCS .not_register
@@ -1433,7 +1699,6 @@ endmacro
 	STA.b DP.ROM_READ
 	STX.b DP.ROM_READ.b
 
-	JSR DidACall
 	JMP NEXT_OP_0
 
 %addop($23, "OP_23_AND_SR", AN, D_, SR, AND_A, IsolateAndExecuteSafely_2)
@@ -1508,7 +1773,6 @@ endmacro
 
 %addop($40, "OP_40_RTI", RT, I_, IMP, NOTHIN, this)
 	JSR PullFromStack_RTI
-	JSR DidAReturn
 	JMP NEXT_OP_0
 
 %addop($41, "OP_41_EOR_DP_X_IND", EO, Rb, DP_X_IND, EOR_A, IsolateAndExecuteSafely_2)

@@ -16,12 +16,9 @@ macro col4(h1,h2,h3,h4)
 endmacro
 
 struct DP $000000
-	.SCRATCH: skip 10
+	.SCRATCH: skip 5
 
-	.TEST: skip 2 ; for doing operations on consistently
-	.TESTB: skip 2 ; for doing operations on consistently
-
-	.VECTOR_X: skip 2
+	.TEST: skip 3 ; for doing operations on consistently
 
 	.VRAM_LOC: skip 2
 	.DO_DRAW: skip 2
@@ -32,11 +29,6 @@ struct DP $000000
 	.ROM_READ.l: skip 1
 	.ROM_READ.h: skip 1
 	.ROM_READ.b: skip 1
-
-	.ROM_READ_LE:
-	.ROM_READ_LE.l: skip 1
-	.ROM_READ_LE.h: skip 1
-	.ROM_READ_LE.b: skip 1
 
 	.REG_P: skip 1
 	.REG_P.N: skip 1
@@ -54,15 +46,12 @@ struct DP $000000
 	.REG_X: skip 2
 	.REG_Y: skip 2
 	.REG_D: skip 2
-
-	.LOCAL_READ: skip 2
 	.REG_DB: skip 1
 
 	.REG_SR: skip 2
 	.REG_SR_BANK: skip 1 ; always $7F
 
-	.SUBROUTINE_LEVEL: skip 2
-	.EXECUTE: skip 8
+	.EXECUTE: skip 5
 
 	.DRAW_BUFFER: skip 22
 	.DRAW_BUFFER.A: skip 6
@@ -72,7 +61,6 @@ struct DP $000000
 	.DRAW_BUFFER.S: skip 6
 	.DRAW_BUFFER.D: skip 6
 	.DRAW_BUFFER.B: skip 4
-	skip 20
 
 endstruct
 
