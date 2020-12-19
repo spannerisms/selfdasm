@@ -146,6 +146,7 @@ PullFromStack:
 
 .REG_A
 	JSR Sync_REG_P
+	SEP #$20
 	BIT.b DP.REG_P.M
 	BPL ..do2
 

@@ -8,6 +8,9 @@ incsrc "defines.asm"
 incsrc "registers.asm"
 
 org $808000
+incbin "disassemble.asm":0-7fff
+
+org $808000
 incsrc "setup.asm"
 incsrc "general.asm"
 incsrc "disassemble.asm"

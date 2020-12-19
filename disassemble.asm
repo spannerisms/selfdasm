@@ -1,12 +1,4 @@
-; TODO: disassemble each vector first
-; make branches do both a successful and an unsuccessful path
-; and try to find a convergence point
-;
-; make all WRAM writes/reads be in bank 70
-; also the virtual stack in bank 70
-; make bank 7F and 70 writes go nowhere when "emulating"
 Disassemble_Start:
-	; run each vector
 	REP #$20
 	SEP #$10
 
@@ -38,14 +30,11 @@ Disassemble_Start:
 
 	RTS
 
-
-
 .vectors_order
 	dw EMU_VECTOR_COP
 	dw EMU_VECTOR_BRK
 	dw EMU_VECTOR_ABR
 	dw EMU_VECTOR_NMI
-	;dw EMU_VECTOR_IRQ
 	dw EMU_VECTOR_IRQ
 	dw EMU_VECTOR_RST
 
@@ -138,10 +127,8 @@ Disassemble_Next:
 
 	JMP.w (OpCodeRun, X)
 
-
 OpCodeRun:
 	fillword 0 : fill 512
-
 
 OpCode_NMIWAIT:
 	SEP #$10
@@ -180,8 +167,6 @@ DrawOpCode:
 	PLP
 	PLY
 	RTS
-
-
 
 .dodraw
 	REP #$30
@@ -314,7 +299,6 @@ DrawOpCode:
 	TAY
 	STY.w DP.DRAW_BUFFER.A+2
 
-
 	LDY.w #$2000|X_COL
 	STY.w DP.DRAW_BUFFER.X+0
 	LDA.b DP.REG_X+0
@@ -323,7 +307,6 @@ DrawOpCode:
 	LDA.b DP.REG_X+1
 	TAY
 	STY.w DP.DRAW_BUFFER.X+2
-
 
 	LDY.w #$2000|Y_COL
 	STY.w DP.DRAW_BUFFER.Y+0
@@ -334,17 +317,11 @@ DrawOpCode:
 	TAY
 	STY.w DP.DRAW_BUFFER.Y+2
 
-
-
-
 	LDY.w #$2000|P_COL
 	STY.w DP.DRAW_BUFFER.P+0
 	LDA.b DP.REG_P
 	TAY
 	STY.w DP.DRAW_BUFFER.P+2
-
-
-
 
 	LDY.w #$2000|S_COL
 	STY.w DP.DRAW_BUFFER.S+0
@@ -355,9 +332,6 @@ DrawOpCode:
 	TAY
 	STY.w DP.DRAW_BUFFER.S+2
 
-
-
-
 	LDY.w #$2000|D_COL
 	STY.w DP.DRAW_BUFFER.D+0
 	LDA.b DP.REG_D+0
@@ -367,23 +341,11 @@ DrawOpCode:
 	TAY
 	STY.w DP.DRAW_BUFFER.D+2
 
-
-
 	LDY.w #$2000|B_COL
 	STY.w DP.DRAW_BUFFER.B+0
 	LDA.b DP.REG_DB+0
 	TAY
 	STY.w DP.DRAW_BUFFER.B+2
-
-
-
-
-
-
-
-
-
-
 
 	REP #$30
 	RTS
@@ -425,7 +387,6 @@ DrawAddressingMode:
 	dw .Draw_JMP_LONG-1
 
 	dw .Draw_BLK-1
-
 
 .Draw_FirstAddrByte_P
 	LDA.w #$3100
@@ -690,7 +651,6 @@ DrawAddressingMode:
 	INC
 	BRA .Draw_RELATIVE
 
-
 .Draw_JMP_ABS
 	LDY.w #2
 	BRA .JUMP_JMP_ABS
@@ -718,23 +678,8 @@ DrawAddressingMode:
 	ORA.w #$2100
 	JMP .Draw_Any
 
-
-
-
-
-
-
-
-
 OpCodeDraw:
 	fillbyte $F0 : fill 256*4
-
-
-
-
-
-
-
 
 NEXT_OP_X:
 	REP #$20
@@ -858,15 +803,12 @@ GetEffectiveAddress:
 	STA.b DP.SCRATCH+0
 	RTS
 
-
-
 .handle_DP_Y
 	JSR .get_DP
 	CLC
 	ADC.b DP.REG_Y
 	STA.b DP.SCRATCH+0
 	RTS
-
 
 .handle_DP_IND
 	JSR .get_DP
@@ -908,7 +850,6 @@ GetEffectiveAddress:
 	JSR .handle_DP_IND_L
 	BRA .handle_DP_IND_Y_ARB
 
-
 .get_ABS
 .handle_ABS
 	REP #$20
@@ -919,7 +860,6 @@ GetEffectiveAddress:
 	LDY.b DP.REG_DB
 	STY.b DP.SCRATCH+2
 	RTS
-
 
 .handle_ABS_X
 	JSR .get_ABS
@@ -1025,7 +965,6 @@ GetEffectiveAddress:
 	STA.b DP.SCRATCH+1
 	RTS
 
-
 .handle_LONG_X
 	JSR .handle_LONG
 	CLC
@@ -1045,8 +984,6 @@ GetEffectiveAddress:
 .handle_BLK
 	CLC
 	RTS
-
-
 
 PrepareEffectiveRead:
 	REP #$30
@@ -1155,7 +1092,6 @@ IsolateAndExecuteSafely_4:
 	JSR IsolateAndExecuteSafely
 	JMP NEXT_OP_4
 
-
 IsolateAndExecuteSafely:
 	PHX
 	PHY
@@ -1201,8 +1137,6 @@ IsolateAndExecuteSafely:
 	CMP.w #SAVE_Y : BCC .register
 
 	CMP.w #INC_IT : BCC .not_register
-
-
 
 .register
 	LDA.w #$6666
@@ -1269,22 +1203,10 @@ IsolateAndExecuteSafely:
 	REP #$20
 	PHA
 
-
-
-
 	REP #$20
 	PLA
 	PLP
 	RTL
-
-
-
-
-
-
-
-
-
 
 IsolateAndExecute_AccumulatorImmediate:
 	SEP #$30
@@ -1328,8 +1250,6 @@ IsolateAndExecute_1:
 	LDX.b #1
 	BRA IsolateAndExecute
 
-
-
 ; enters with X=number of bytes
 IsolateAndExecute:
 	SEP #$30
@@ -1351,7 +1271,6 @@ IsolateAndExecute:
 	TYA
 	ADC.b DP.ROM_READ
 	STA.b DP.ROM_READ
-
 
 	PHD
 	PHB
@@ -1412,7 +1331,6 @@ macro addop(bt, nm, op1, op2, op3, dohow, rt)
 	org OpCodeDraw+<bt>*4 : db <op1>, <op2>, <op3>, <dohow>
 	pullpc
 endmacro
-
 
 %addop($00, "OP_00_BRK", BR, K_, IMM, NOTHIN, NEXT_OP_2)
 
@@ -2053,4 +1971,3 @@ endmacro
 %addop($FE, "OP_FE_INC_ABS_X", IN, Cw, ABS_X, INC_IT, IsolateAndExecuteSafely_3)
 
 %addop($FF, "OP_FF_SBC_LONG_X", SB, Cl, LONG_X, SBC_A, IsolateAndExecuteSafely_4)
-
