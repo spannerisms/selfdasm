@@ -15,8 +15,8 @@ db "Self-Di", "sassemb", "ler    "
 
 db $31 ; rom map
 db $02 ; rom type, rom, ram, sram
-db $0B ; rom size
-db $03 ; sram size
+db $05 ; rom size
+db $00 ; sram size
 db $01 ; ntsc
 db $33 ; use $FFB0 for header
 db $01 ; version
