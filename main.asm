@@ -12,7 +12,6 @@ incbin "disassemble.asm":0-7fff
 reset bytes
 
 org $808000
-incsrc "setup.asm"
 incsrc "disassemble.asm"
 
 incsrc "header.asm"

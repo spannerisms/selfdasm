@@ -1,3 +1,196 @@
+Vector_Reset:
+	SEI
+	REP #$09
+	XCE
+	JML.l Reset_Fast
+
+#Reset_Fast:
+	ROL.w $420D ; fast ROM
+	STZ.w NMITIMEN
+
+	PEA.w $2100
+	PLD
+
+	LDX.b #$80
+	PHX
+	PLB
+
+	STX.b INIDISP
+	STX.b VMAIN
+
+	STZ.b CGADD ; black bg
+	STZ.b CGDATA
+	STZ.b CGDATA
+
+	STZ.b WMADDH
+
+	STZ.b BGMODE
+	STZ.b MOSAIC
+
+	LDA.b #$02
+	STA.b BG1SC
+	DEC
+	STA.b BG12NBA
+
+	STZ.b BG1HOFS
+	STZ.b BG1HOFS
+	STZ.b BG1VOFS
+	STZ.b BG1VOFS
+
+	STZ.b W12SEL
+
+	LDA.b #$01
+	STA.b TM
+	STA.b TS
+
+	STZ.b TMW
+	STZ.b TSW
+
+	STZ.b CGWSEL
+	STZ.b SETINI
+
+	REP #$20
+	STZ.b VMADDR ; reset write address for VRAM and WRAM
+	STZ.b WMADDL
+
+#ZeroLand:
+	LDA.w #$4300
+	TCD
+
+	LDA.w #ZeroLand+1
+	STA.b $4302
+	STA.b $4312
+	STA.b $4322
+
+	STX.b $4304
+	STX.b $4314
+	STX.b $4324
+
+	LDA.w #$1809
+	STA.b $4300 ; write type for VRAM
+
+	LDA.w #$8008
+	STA.b $4310 ; write type for WRAM
+	STA.b $4320
+
+	LDX.b #$03
+	STX.w $420B
+
+	; now bank 7F
+	LDX.b #$01
+	STX.w WMADDH
+	STZ.w WMADDR
+
+	LDX.b #$04
+	STX.w $420B
+
+
+	; now add the gfx in
+	LDA.w #GFX
+	STA.b $4302
+
+	LDA.w #$1801
+	TAX
+	STA.b $4300
+
+	LDA.w #$0800
+	STA.b $4305
+
+	LDA.w #$1000
+	STA.w VMADDR
+
+	STX.w $420B
+
+	STA.b $4305
+
+	LDA.w #$1800
+	STA.w VMADDR
+
+	STX.w $420B
+
+	TAX
+	STX.w CGADD
+
+	LDA.w #$2202
+	STA.b $4300
+
+	LDX.b #$40
+	STX.b $4305
+
+	LDX.b #$01
+	STX.w $420B
+
+	LDA.w #$1FFD
+	TCS
+	PLD
+
+	JML Disassemble_Start
+
+Vector_NMI:
+	REP #$30
+	PHA
+	PHY
+	PHX
+	PHB
+	PHD
+
+	LDA.w #$0000
+	TCD
+
+	SEP #$31
+	AND.l RDNMI
+
+	BIT.b DP.DO_DRAW
+	BPL .skip
+
+	JML .fast
+
+.fast
+	LDA.b #$80
+	PHA
+	PLB
+
+	STA.w INIDISP
+	STZ.b DP.DO_DRAW
+
+	REP #$20
+	LDA.b DP.VRAM_LOC
+	STA.w VMADDR
+
+	LDX.b #00
+
+--	LDA.b DP.DRAW_BUFFER, X
+	STA.w VMDATA
+	INX
+	INX
+	CPX.b #64
+	BCC --
+
+	SEP #$30
+	LDA.b #$0F
+	STA.w INIDISP
+
+.skip
+	PLD
+	PLB
+	REP #$30
+	PLX
+	PLY
+	PLA
+	RTI
+
+Vector_COP:
+	RTI
+
+Vector_IRQ:
+
+
+Vector_Unused:
+Vector_Abort:
+Vector_BRK:
+	RTI
+
+
 Disassemble_Start:
 	REP #$20
 	SEP #$10
@@ -28,7 +221,7 @@ Disassemble_Start:
 	CPX.b #11
 	BCC .next_vector
 
-	RTS
+	STP
 
 .vectors_order
 	dw EMU_VECTOR_COP
@@ -89,7 +282,7 @@ Disassemble_UntilReturn:
 	CMP.b #$40 : BEQ .done ; RTI
 	;CMP.b #$60 : BEQ .return ; RTS
 	;CMP.b #$6B : BEQ .return ; RTL
-	CMP.b #$DB : BEQ .done ; STP
+	;CMP.b #$DB : BEQ .done ; STP
 
 	JSR Disassemble_Next
 	BRA .next
@@ -128,7 +321,10 @@ Disassemble_Next:
 	JMP.w (OpCodeRun, X)
 
 OpCodeRun:
-	fillword 0 : fill 512
+	fillword 0 : fill 256*2
+
+OpCodeDraw:
+	fillbyte 0 : fill 256*4
 
 PushToStack:
 .RTI
@@ -710,6 +906,9 @@ DrawAddressingMode:
 
 	RTS
 
+.Draw_DOL
+	LDA.w #DOL_R
+
 .Draw_Any
 	STA.b DP.DRAW_BUFFER, X
 	INX
@@ -929,22 +1128,23 @@ DrawAddressingMode:
 	JMP .Draw_FirstAddrByte_RELOCATE
 
 .Draw_BLK
-	LDY.w #3
-
-	LDA.b [DP.ROM_READ], Y
-	AND.w #$00FF
-	ORA.w #$2100
-	JSR .Draw_Any
-	JSR .Draw_COM
-
 	LDY.w #2
+
+	JSR .Draw_DOL
+
 	LDA.b [DP.ROM_READ], Y
 	AND.w #$00FF
-	ORA.w #$2100
-	JMP .Draw_Any
+	ORA.w #$3500
+	JSR .Draw_Any
 
-OpCodeDraw:
-	fillbyte $F0 : fill 256*4
+	JSR .Draw_COM
+	JSR .Draw_DOL
+
+	LDY.w #1
+	LDA.b [DP.ROM_READ], Y
+	AND.w #$00FF
+	ORA.w #$3500
+	JMP .Draw_Any
 
 NEXT_OP_X:
 	REP #$20
@@ -952,10 +1152,11 @@ NEXT_OP_X:
 
 #NEXT_OP_M:
 	SEP #$20
+
 .test
 	BIT.b DP.REG_P.M
 	BMI NEXT_OP_1
-	BPL NEXT_OP_2
+	BRA NEXT_OP_2
 
 NEXT_OP_4:
 	REP #$20
@@ -1247,7 +1448,6 @@ GetEffectiveAddress:
 .handle_JMP_ABS
 .handle_JMP_LONG
 .handle_BLK
-	CLC
 	RTS
 
 PrepareEffectiveRead:
@@ -1384,8 +1584,10 @@ IsolateAndExecuteSafely:
 	REP #$20
 	BRA .not_register
 
-	; TODO prevent writes to bank7F?
 .notwram
+	CMP.w #$007F ; bank 7F is banned
+	BEQ .register
+
 	LDA.b DP.SCRATCH
 	CMP.w #$4400 : BCS .not_register
 	CMP.w #$2000 : BCC .wram
@@ -1406,7 +1608,8 @@ IsolateAndExecuteSafely:
 
 .register
 	LDA.w #$6666
-	STA.b DP.SCRATCH
+	STA.b DP.SCRATCH+0
+	STA.b DP.SCRATCH+1
 
 .not_register
 	JSR PrepareEffectiveRead
@@ -2153,7 +2356,8 @@ endmacro
 	JSR PushToStack_REG_X
 	JMP NEXT_OP_1
 
-%addop($DB, "OP_DB_STP", ST, P_, IMP, NOTHIN, NEXT_OP_1)
+%addop($DB, "OP_DB_STP", ST, P_, IMP, NOTHIN, this)
+--	BRA --
 
 %addop($DC, "OP_DC_JMP_ABS_IND", JM, Pw, ABS_IND, RELOC, IsolateAndExecuteSafely_0)
 
@@ -2235,3 +2439,19 @@ endmacro
 %addop($FE, "OP_FE_INC_ABS_X", IN, Cw, ABS_X, INC_IT, IsolateAndExecuteSafely_3)
 
 %addop($FF, "OP_FF_SBC_LONG_X", SB, Cl, LONG_X, SBC_A, IsolateAndExecuteSafely_4)
+
+GFX:
+incbin "opcodesgfx.2bpp"
+incbin "hexgfx1.2bpp"
+incbin "hexgfx2.2bpp"
+
+Palettes:
+%col4($000000, $F8F8F8, $F80000, $000000)
+%col4($000000, $F8F8F8, $F8E800, $000000)
+%col4($000000, $00FFE8, $1098F8, $C000C8)
+%col4($000000, $F8F8F8, $1098F8, $00FFE8)
+
+%col4($000000, $F8F8F8, $F85000, $000000)
+%col4($000000, $F8F8F8, $F8F8F8, $00FFE8)
+%col4($000000, $F8F8F8, $1098F8, $000000)
+%col4($000000, $F8F8F8, $0058D8, $000000)
