@@ -874,7 +874,7 @@ GetEffectiveAddress:
 .handle_DP_IND_ARB
 	SEP #$31
 	LDA.b #$7F
-	STA.b DP.SCRATCH+3
+	STA.b DP.SCRATCH+2
 	LDX.b DP.REG_DB
 
 	REP #$20
@@ -901,7 +901,7 @@ GetEffectiveAddress:
 
 .handle_DP_IND_L
 	JSR .handle_DP_IND
-	STY.b DP.SCRATCH+0
+	STY.b DP.SCRATCH+2
 	RTS
 
 .handle_DP_IND_L_Y
@@ -1099,8 +1099,8 @@ PrepareEffectiveRead:
 	db $8E ; SAVE_X
 	db $AE ; READ_X
 	db $EC ; CPX_X
-	db $C8 ; SAVE_Y
-	db $CA ; READ_Y
+	db $8C ; SAVE_Y
+	db $AC ; READ_Y
 	db $CC ; CPY_Y
 	db $EE ; INC_IT
 	db $CE ; DEC_IT
@@ -1128,8 +1128,9 @@ PrepareEffectiveRead:
 	JMP .set_nothing
 
 #EXEC_RELOCL:
-	JSR EXEC_RELOC
+	REP #$30
 	LDA.b DP.SCRATCH
+	STA.b DP.ROM_READ
 	SEP #$20
 	STA.b DP.ROM_READ+2
 	JMP .set_nothing
@@ -1175,6 +1176,7 @@ IsolateAndExecuteSafely:
 	CMP.w #$2000
 	BCS .notwram
 
+.wram
 	SEP #$20
 	LDA.b #$7F
 	STA.b DP.SCRATCH+2
@@ -1184,6 +1186,7 @@ IsolateAndExecuteSafely:
 .notwram
 	LDA.b DP.SCRATCH
 	CMP.w #$4400 : BCS .not_register
+	CMP.w #$2000 : BCC .wram
 	CMP.w #$2100 : BCC .not_register
 
 	LDA.l OpCodeDraw+3, X
@@ -1756,26 +1759,14 @@ endmacro
 %addop($7F, "OP_7F_ADC_LONG_X", AD, Cl, LONG_X, ADC_A, IsolateAndExecuteSafely_4)
 
 %addop($80, "OP_80_BRA", BR, A_, REL, NOTHIN, this)
-	REP #$31
-	LDY.w #1
-	LDA.b [DP.ROM_READ], Y
-	AND.b #$00FF
-	ADC.b DP.ROM_READ
-	INC
-	STA.b DP.ROM_READ
-	JMP NEXT_OP_0
+	SEP #$80
+	JMP DoBranching
 
 %addop($81, "OP_81_STA_DP_X_IND", ST, Ab, DP_X_IND, SAVE_A, IsolateAndExecuteSafely_2)
 
 %addop($82, "OP_82_BRL", BR, L_, REL_L, NOTHIN, this)
-	REP #$31
-	LDY.w #1
-	LDA.b [DP.ROM_READ], Y
-	ADC.b DP.ROM_READ
-	INC
-	INC
-	STA.b DP.ROM_READ
-	JMP NEXT_OP_0
+	SEP #$80
+	JMP DoBranchingLong
 
 %addop($83, "OP_83_STA_SR", ST, A_, SR, SAVE_A, IsolateAndExecuteSafely_2)
 
