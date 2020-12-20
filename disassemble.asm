@@ -1,3 +1,67 @@
+Vector_NMI:
+	REP #$30
+	PHA
+	PHY
+	PHX
+	PHB
+	PHD
+
+	LDA.w #$0000
+	TCD
+
+	SEP #$31
+	AND.l RDNMI
+
+	BIT.b DP.DO_DRAW
+	BPL .skip
+
+	JML .fast
+
+.fast
+	LDA.b #$80
+	PHA
+	PLB
+
+	STA.w INIDISP
+	STZ.b DP.DO_DRAW
+
+	REP #$20
+	LDA.b DP.VRAM_LOC
+	STA.w VMADDR
+
+	LDX.b #00
+
+--	LDA.b DP.DRAW_BUFFER, X
+	STA.w VMDATA
+	INX
+	INX
+	CPX.b #64
+	BCC --
+
+	SEP #$30
+	LDA.b #$0F
+	STA.w INIDISP
+
+.skip
+	PLD
+	PLB
+	REP #$30
+	PLX
+	PLY
+	PLA
+	RTI
+
+Vector_COP:
+	RTI
+
+Vector_IRQ:
+	RTI
+
+Vector_Unused:
+Vector_Abort:
+Vector_BRK:
+	RTI
+
 Vector_Reset:
 	SEI
 	REP #$09
@@ -124,73 +188,6 @@ Vector_Reset:
 	TCS
 	PLD
 
-	JML Disassemble_Start
-
-Vector_NMI:
-	REP #$30
-	PHA
-	PHY
-	PHX
-	PHB
-	PHD
-
-	LDA.w #$0000
-	TCD
-
-	SEP #$31
-	AND.l RDNMI
-
-	BIT.b DP.DO_DRAW
-	BPL .skip
-
-	JML .fast
-
-.fast
-	LDA.b #$80
-	PHA
-	PLB
-
-	STA.w INIDISP
-	STZ.b DP.DO_DRAW
-
-	REP #$20
-	LDA.b DP.VRAM_LOC
-	STA.w VMADDR
-
-	LDX.b #00
-
---	LDA.b DP.DRAW_BUFFER, X
-	STA.w VMDATA
-	INX
-	INX
-	CPX.b #64
-	BCC --
-
-	SEP #$30
-	LDA.b #$0F
-	STA.w INIDISP
-
-.skip
-	PLD
-	PLB
-	REP #$30
-	PLX
-	PLY
-	PLA
-	RTI
-
-Vector_COP:
-	RTI
-
-Vector_IRQ:
-
-
-Vector_Unused:
-Vector_Abort:
-Vector_BRK:
-	RTI
-
-
 Disassemble_Start:
 	REP #$20
 	SEP #$10
@@ -198,73 +195,25 @@ Disassemble_Start:
 	LDX.b #$7F
 	STX.b DP.REG_SR_BANK
 
-	LDX.b #0
+	LDX.b #$0F
+	STX.w INIDISP
 
-.next_vector
-	PHX
-	PHP
-
-	STZ.b DP.ROM_READ+1
-	LDA.l .vectors_order, X
-	STA.b DP.ROM_READ
-	LDA.b [DP.ROM_READ]
-	STA.b DP.ROM_READ
-
-	JSR (.vectors_pflags_routine, X)
-	JSR Disassemble_UntilReturn
-
-	PLP
-	PLX
-
-	INX
-	INX
-	CPX.b #11
-	BCC .next_vector
+	JSR RunVector_IRQ
+	JSR RunVector_NMI
+	JSR RunVector_RESET
 
 	STP
 
-.vectors_order
-	dw EMU_VECTOR_COP
-	dw EMU_VECTOR_BRK
-	dw EMU_VECTOR_ABR
-	dw EMU_VECTOR_NMI
-	dw EMU_VECTOR_IRQ
-	dw EMU_VECTOR_RST
-
-.vectors_pflags_routine
-	dw .FLAGS_COP
-	dw .FLAGS_BRK
-	dw .FLAGS_ABR
-	dw .FLAGS_NMI
-	dw .FLAGS_IRQ
-	dw .FLAGS_RST
-
-.FLAGS_COP
-.FLAGS_BRK
-	SEP #$20
-	LDA.b #$04
-	TSB.b DP.REG_P
-
-.FLAGS_ABR
-.FLAGS_NMI
-.FLAGS_IRQ
+RunVector:
+.RESET
 	REP #$20
-	LDA.w #$01FF
-	STA.b DP.REG_SR
-	RTS
+	LDA.w #EMU_VECTOR_RST
+	STZ.b DP.ROM_READ+1
+	STA.b DP.ROM_READ+0
 
-.FLAGS_RST
-	SEP #$20
+	LDA.b [DP.ROM_READ]
+	STA.b DP.ROM_READ
 
-	LDA.b #$80
-	STA.b DP.REG_P.E
-
-	LDA.b #$30
-	STA.b DP.REG_P
-
-	STZ.b DP.REG_DB
-
-	REP #$20
 	STZ.b DP.REG_A
 	STZ.b DP.REG_X
 	STZ.b DP.REG_Y
@@ -273,35 +222,89 @@ Disassemble_Start:
 	LDA.w #$01FF
 	STA.b DP.REG_SR
 
+	SEP #$30
+	STZ.b DP.REG_DB
+
+	LDA.b #$30
+	STA.b DP.REG_P
+
+	LDA.b #$FF
+	STA.b DP.REG_P.E
+
+#Disassemble_Forever:
+	JSR Disassemble_Next
+	BRA Disassemble_Forever
 	RTS
 
-Disassemble_UntilReturn:
+.IRQ
+	SEP #$30
+
+	LDA.b DP.REG_P
+	ORA.b #$04
+	AND.b #$F7
+	TAX
+
+	REP #$20
+	LDA.w #NAT_VECTOR_IRQ
+	BRA DisassembleVector
+
+.NMI
+	SEP #$30
+
+	LDA.b DP.REG_P
+	AND.b #$F7
+	TAX
+
+	REP #$20
+	LDA.w #NAT_VECTOR_NMI
+	BRA DisassembleVector
+
+PrepSoftwareInterrupt:
+	REP #$20
+	; since RTI hinges on RTL
+	; we need to compensate for the operand size
+	DEC.b DP.ROM_READ
+	DEC.b DP.ROM_READ
+	JSR PushToStack_RTI
+
+	SEP #$30
+	LDA.b DP.REG_P
+	AND.b #$F7
+	ORA.b #$04
+	STA.b DP.REG_P
+
+	JSR Sync_REG_P
+
+GetVectorSet:
+	SEP #$30
+	LDA.b DP.REG_P.E
+	AND.b #$80
+	LSR
+	LSR
+	LSR
+	TAX
+	REP #$20
+	RTS
+
+DisassembleVector:
+	REP #$20
+	STZ.b DP.ROM_READ+1
+	STA.b DP.ROM_READ+0
+
+	LDA.b [DP.ROM_READ]
+	STA.b DP.ROM_READ
+
+	STX.b DP.REG_P
+
+	LDA.w #$01FF
+	STA.b DP.REG_SR
+
+Disassemble_UntilRTI:
 .next
 	SEP #$30
 	LDA.b [DP.ROM_READ]
 	CMP.b #$40 : BEQ .done ; RTI
-	;CMP.b #$60 : BEQ .return ; RTS
-	;CMP.b #$6B : BEQ .return ; RTL
-	;CMP.b #$DB : BEQ .done ; STP
 
-	JSR Disassemble_Next
-	BRA .next
-
-.done
-	JMP OnlyDrawOpcode
-
-Disassemble_UntilJump:
-.next
-	SEP #$30
-	LDA.b [DP.ROM_READ]
-	CMP.b #$4C : BEQ .done ; JMP
-	CMP.b #$5C : BEQ .done ; JML
-	CMP.b #$6C : BEQ .done ; JMP (addr)
-	CMP.b #$7C : BEQ .done ; JMP (addr, X)
-	CMP.b #$DC : BEQ .done ; JML [addr]
-
-	CMP.b #$80 : BEQ .done ; BRA
-	CMP.b #$82 : BEQ .done ; BRL
 	JSR Disassemble_Next
 	BRA .next
 
@@ -319,12 +322,6 @@ Disassemble_Next:
 	TAX
 
 	JMP.w (OpCodeRun, X)
-
-OpCodeRun:
-	fillword 0 : fill 256*2
-
-OpCodeDraw:
-	fillbyte 0 : fill 256*4
 
 PushToStack:
 .RTI
@@ -612,6 +609,7 @@ OpCode_NMIWAIT:
 .no_draw
 	SEP #$10
 	LDY.b #$80
+	RTS
 	BRA .start
 
 OnlyDrawOpcode:
@@ -736,8 +734,6 @@ DrawOpCode:
 
 	LDA.w OpCodeDraw+2, Y
 	AND.w #$007F
-	CMP.w #$007F
-	BEQ .done
 
 	ASL
 	TAX
@@ -747,7 +743,6 @@ DrawOpCode:
 
 	LDX.w #12
 
-.done
 	LDA.w #$3D00
 	SEP #$20
 	LDY.w #$2000|A_COL
@@ -812,6 +807,8 @@ DrawOpCode:
 	RTS
 
 DrawAddressingMode:
+	dw .Draw_IMP-1
+
 	dw .Draw_DP-1
 	dw .Draw_DP_X-1
 	dw .Draw_DP_Y-1
@@ -904,6 +901,7 @@ DrawAddressingMode:
 	DEY
 	BNE .Draw_AddrByte
 
+.Draw_IMP
 	RTS
 
 .Draw_DOL
@@ -913,8 +911,6 @@ DrawAddressingMode:
 	STA.b DP.DRAW_BUFFER, X
 	INX
 	INX
-
-.Draw_IMP
 	RTS
 
 .Draw_C_PRN
@@ -1206,20 +1202,14 @@ GetEffectiveAddress:
 	ASL
 	TAX
 	LDA.l OpCodeDraw+2, X
-
 	AND.w #$00FF
-	CMP.w #$0080
-	BCS .safe
 
 	ASL
 	TAX
-	JSR (.addressing_modes, X)
-
-.safe
-	SEP #$30
-	RTS
+	JMP (.addressing_modes, X)
 
 .addressing_modes
+	dw .handle_IMP
 	dw .handle_DP
 	dw .handle_DP_X
 	dw .handle_DP_Y
@@ -1253,13 +1243,25 @@ GetEffectiveAddress:
 .get_DP
 .handle_DP
 	REP #$31
-	LDY.w #1
-	LDA.b [DP.ROM_READ], Y
-	AND.w #$00FF
+	LDA.b [DP.ROM_READ]
+	AND.w #$FF00
+	XBA
 	ADC.b DP.REG_D
-	LDY.w #$0000
-	STY.b DP.SCRATCH+1
+	STZ.b DP.SCRATCH+1
 	STA.b DP.SCRATCH+0
+
+
+.handle_IMP
+.handle_IMM
+.handle_IMM_L
+.handle_IMM_A
+.handle_IMM_X
+.handle_A_REG
+.handle_REL
+.handle_REL_L
+.handle_JMP_ABS
+.handle_JMP_LONG
+.handle_BLK
 	RTS
 
 .handle_DP_X
@@ -1352,7 +1354,7 @@ GetEffectiveAddress:
 
 .handle_SR
 	JSR .do_SR
-	LDY.b #$7F
+	LDY.b #$00
 	STY.b DP.SCRATCH+2
 	RTS
 
@@ -1398,7 +1400,7 @@ GetEffectiveAddress:
 
 .handle_ABS_X_IND
 	JSR .handle_ABS_X
-	JMP .handle_ABS_IND_ARB
+	BRA .handle_ABS_IND_ARB
 
 .handle_ABS_IND_L
 	JSR .get_ABS
@@ -1438,18 +1440,6 @@ GetEffectiveAddress:
 	STA.b DP.SCRATCH+0
 	RTS
 
-.handle_IMM
-.handle_IMM_L
-.handle_IMM_A
-.handle_IMM_X
-.handle_A_REG
-.handle_REL
-.handle_REL_L
-.handle_JMP_ABS
-.handle_JMP_LONG
-.handle_BLK
-	RTS
-
 PrepareEffectiveRead:
 	REP #$30
 	LDA.b [DP.ROM_READ]
@@ -1458,6 +1448,62 @@ PrepareEffectiveRead:
 	ASL
 	TAX
 
+	LDA.b DP.SCRATCH+2
+	AND.w #$00FF
+	BNE .notwram
+
+.bank00
+	LDA.b DP.SCRATCH
+	CMP.w #$2000
+	BCS .notwrammirror
+
+.wram
+	SEP #$20
+	LDA.b #$7F
+	STA.b DP.SCRATCH+2
+	REP #$20
+	BRA .not_register
+
+.notwram
+	CMP.w #$007F ; bank 7F is banned
+	BEQ .openbus ; use this isntead
+
+	LDA.b DP.SCRATCH
+
+.notwrammirror
+	CMP.w #$8000 : BCS .romspace
+	CMP.w #$2000 : BCC .wram
+	CMP.w #$2100 : BCC .openbus
+	CMP.w #$2200 : BCC .registercontinue
+	CMP.w #$4016 : BCC .openbus
+	CMP.w #$4017 : BEQ .registercontinue
+	CMP.w #$4200 : BCC .openbus
+	CMP.w #$4220 : BCC .registercontinue
+	CMP.w #$4300 : BCC .openbus
+	CMP.w #$4380 : BCS .openbus
+
+.registercontinue
+	LDA.l OpCodeDraw+3, X
+	AND.w #$00FF
+	BEQ .not_register
+
+	CMP.w #PEI_IT : BCS .not_register
+	CMP.w #SAVE_A : BEQ .register
+
+	CMP.w #TRB_A : BCC .not_register
+	CMP.w #READ_X : BCC .register
+	CMP.w #SAVE_Y : BCC .register
+
+	CMP.w #INC_IT : BCC .not_register
+
+.openbus
+.register
+	LDA.w #$6666
+	STA.b DP.SCRATCH+0
+	STA.b DP.SCRATCH+1
+
+.romspace
+.not_register
 	LDA.b DP.SCRATCH
 	STA.b DP.EXECUTE+1
 
@@ -1566,52 +1612,6 @@ IsolateAndExecuteSafely:
 
 	; get opcode
 	JSR GetEffectiveAddress
-
-	REP #$30
-	LDA.b DP.SCRATCH+2
-	AND.w #$00FF
-	BNE .notwram
-
-.bank00
-	LDA.b DP.SCRATCH
-	CMP.w #$2000
-	BCS .notwram
-
-.wram
-	SEP #$20
-	LDA.b #$7F
-	STA.b DP.SCRATCH+2
-	REP #$20
-	BRA .not_register
-
-.notwram
-	CMP.w #$007F ; bank 7F is banned
-	BEQ .register
-
-	LDA.b DP.SCRATCH
-	CMP.w #$4400 : BCS .not_register
-	CMP.w #$2000 : BCC .wram
-	CMP.w #$2100 : BCC .not_register
-
-	LDA.l OpCodeDraw+3, X
-	AND.w #$00FF
-	BEQ .not_register
-
-	CMP.w #PEI_IT : BCS .not_register
-	CMP.w #SAVE_A : BEQ .register
-
-	CMP.w #TRB_A : BCC .not_register
-	CMP.w #READ_X : BCC .register
-	CMP.w #SAVE_Y : BCC .register
-
-	CMP.w #INC_IT : BCC .not_register
-
-.register
-	LDA.w #$6666
-	STA.b DP.SCRATCH+0
-	STA.b DP.SCRATCH+1
-
-.not_register
 	JSR PrepareEffectiveRead
 
 	; PREPARE REGISTERS
@@ -1790,6 +1790,12 @@ IsolateAndExecute:
 	SEP #$30
 	RTS
 
+OpCodeRun:
+	fillword 0 : fill 256*2
+
+OpCodeDraw:
+	fillbyte 0 : fill 256*4
+
 HandleBranches = 0
 this = 0
 macro addop(bt, nm, op1, op2, op3, dohow, rt)
@@ -1801,11 +1807,35 @@ macro addop(bt, nm, op1, op2, op3, dohow, rt)
 	pullpc
 endmacro
 
-%addop($00, "OP_00_BRK", BR, K_, IMM, NOTHIN, NEXT_OP_2)
+%addop($00, "OP_00_BRK", BR, K_, IMM, NOTHIN, this)
+	JSR PrepSoftwareInterrupt
+
+	STZ.b DP.ROM_READ+1
+	LDA.l NAT_VECTOR_BRK
+
+	CPX.b #0
+	BEQ .native_mode
+
+.emu_mode
+	LDA.w #$0010
+	TSB.b DP.REG_P
+
+	LDA.l EMU_VECTOR_IRQ
+
+.native_mode
+	STA.b DP.ROM_READ+0
+	JMP NEXT_OP_0
 
 %addop($01, "OP_01_ORA_DP_X_IND", OR, Ab, DP_X_IND, ORA_A, IsolateAndExecuteSafely_2)
 
-%addop($02, "OP_02_COP", CO, P_, IMM, NOTHIN, NEXT_OP_2)
+%addop($02, "OP_02_COP", CO, P_, IMM, NOTHIN, this)
+	JSR PrepSoftwareInterrupt
+
+	STZ.b DP.ROM_READ+1
+	LDA.l NAT_VECTOR_COP, X
+
+	STA.b DP.ROM_READ+0
+	JMP NEXT_OP_0
 
 %addop($03, "OP_03_ORA_SR", OR, A_, SR, ORA_A, IsolateAndExecuteSafely_2)
 
@@ -2074,7 +2104,14 @@ endmacro
 %addop($61, "OP_61_ADC_DP_X_IND", AD, Cb, DP_X_IND, ADC_A, IsolateAndExecuteSafely_2)
 
 %addop($62, "OP_62_PER_REL_L", PE, R_, REL_L, NOTHIN, this)
-	; TODO
+	REP #$31
+	LDY.w #1
+	LDA.b [DP.ROM_READ], Y
+	INC
+	INC
+	INC
+	ADC.b DP.ROM_READ
+	JSR PushToStack_push_2
 	JMP NEXT_OP_3
 
 %addop($63, "OP_63_ADC_SR", AD, C_, SR, ADC_A, IsolateAndExecuteSafely_2)
@@ -2135,7 +2172,24 @@ endmacro
 
 %addop($7B, "OP_7B_TDC", TD, C_, IMP, NOTHIN, IsolateAndExecute_1)
 
-%addop($7C, "OP_7C_JMP_ABS_X_IND", JM, Pw, ABS_X_IND, RELOC, IsolateAndExecuteSafely_0)
+%addop($7C, "OP_7C_JMP_ABS_X_IND", JM, Pw, ABS_X_IND, RELOC, this)
+	; need to do some dumb stuff here
+	; because JSR/JMP (addr, X) is based on program bank, not data
+#RELOCATE_JUMP_ABS_X_IND:
+	SEP #$20
+	LDA.b DP.REG_DB
+	PHA
+
+	LDA.b DP.ROM_READ.b
+	STA.b DP.REG_DB
+
+	JSR IsolateAndExecuteSafely_0
+
+	SEP #$20
+	PLA
+	STA.b DP.REG_DB
+	JMP NEXT_OP_0
+	
 
 %addop($7D, "OP_7D_ADC_ABS_X", AD, Cw, ABS_X, ADC_A, IsolateAndExecuteSafely_3)
 
@@ -2149,9 +2203,7 @@ endmacro
 
 %addop($81, "OP_81_STA_DP_X_IND", ST, Ab, DP_X_IND, SAVE_A, IsolateAndExecuteSafely_2)
 
-%addop($82, "OP_82_BRL", BR, L_, REL_L, NOTHIN, this)
-	SEP #$80
-	JMP DoBranchingLong
+%addop($82, "OP_82_BRL", BR, L_, REL_L, NOTHIN, DoBranchingLong)
 
 %addop($83, "OP_83_STA_SR", ST, A_, SR, SAVE_A, IsolateAndExecuteSafely_2)
 
@@ -2432,7 +2484,7 @@ endmacro
 
 %addop($FC, "OP_FC_JSR_ABS_X_IND", JS, Rw, ABS_X_IND, RELOC, this)
 	JSR PushToStack_RTS
-	JMP IsolateAndExecuteSafely_0
+	JMP RELOCATE_JUMP_ABS_X_IND
 
 %addop($FD, "OP_FD_SBC_ABS_X", SB, Cw, ABS_X, SBC_A, IsolateAndExecuteSafely_3)
 
@@ -2440,6 +2492,9 @@ endmacro
 
 %addop($FF, "OP_FF_SBC_LONG_X", SB, Cl, LONG_X, SBC_A, IsolateAndExecuteSafely_4)
 
+;===============================================================================
+; DATA
+;===============================================================================
 GFX:
 incbin "opcodesgfx.2bpp"
 incbin "hexgfx1.2bpp"
@@ -2455,3 +2510,47 @@ Palettes:
 %col4($000000, $F8F8F8, $F8F8F8, $00FFE8)
 %col4($000000, $F8F8F8, $1098F8, $000000)
 %col4($000000, $F8F8F8, $0058D8, $000000)
+
+;===============================================================================
+; HEADER
+;===============================================================================
+cleartable
+org $00FFB0 ; ROM registration
+db "AA"
+db "DASM"
+db $00, $00, $00, $00, $00, $00
+db $00 ; flash size
+db $00 ; expansion RAM size
+db $00 ; special version
+db $00 ; special chip
+
+org $00FFC0 ; ROM specifications
+db "Self-Di", "sassemb", "ler    "
+
+db $31 ; rom map
+db $00 ; rom type
+db $07 ; rom size
+db $00 ; sram size
+db $01 ; ntsc
+db $33 ; use $FFB0 for header
+db $01 ; version
+dw #$FFFF ; checksum
+dw #$0000 ; inverse checksum
+
+Vectors_Native:
+NAT_VECTOR_UNU: dw $FFFF, $FFFF ; unused
+NAT_VECTOR_COP: dw Vector_COP
+NAT_VECTOR_BRK: dw Vector_BRK
+NAT_VECTOR_ABR: dw Vector_Abort
+NAT_VECTOR_NMI: dw Vector_NMI
+NAT_VECTOR_RST: dw Vector_Reset
+NAT_VECTOR_IRQ: dw Vector_IRQ
+
+Vectors_Emulation:
+EMU_VECTOR_UNU: dw $FFFF, $FFFF ; unused
+EMU_VECTOR_COP: dw Vector_COP
+EMU_VECTOR_UN2: dw $FFFF
+EMU_VECTOR_ABR: dw Vector_Abort
+EMU_VECTOR_NMI: dw Vector_NMI
+EMU_VECTOR_RST: dw Vector_Reset
+EMU_VECTOR_IRQ: dw Vector_IRQ ; IRQ/BRK

@@ -16,12 +16,11 @@ macro col4(h1,h2,h3,h4)
 endmacro
 
 struct DP $000000
-	.SCRATCH: skip 5
-
+	.SCRATCH: skip 4
 	.TEST: skip 3 ; for doing operations on consistently
 
+	.DO_DRAW: skip 1
 	.VRAM_LOC: skip 2
-	.DO_DRAW: skip 2
 	.DRAW_READ: skip 2
 	.DRAW_COLOR: skip 2
 
@@ -196,45 +195,36 @@ B_COL = $76
 STR = $80
 
 ; addressing modes
-DP         = $00 ; dp
-DP_X       = $01 ; dp,X
-DP_Y       = $02 ; dp,Y
-DP_IND     = $03 ; (dp)
-
-DP_X_IND   = $04 ; (dp,X)
-DP_IND_Y   = $05 ; (dp),Y
-DP_IND_L   = $06 ; [dp]
-DP_IND_L_Y = $07 ; [dp],Y
-
-ABS        = $08 ; addr
-ABS_X      = $09 ; addr,X
-ABS_Y      = $0A ; addr,Y
-ABS_IND    = $0B ; (addr)
-
-ABS_X_IND  = $0C ; (addr,X)
-ABS_IND_L  = $0D ; [addr]
-LONG       = $0E ; long
-LONG_X     = $0F ; long,X
-
-IMM        = $10 ; #i
-IMM_L      = $11 ; i
-IMM_A      = $12 ; #i based on M
-IMM_X      = $13 ; #i based on X
-
-SR         = $14 ; i,SR
-SR_IND     = $15 ; (i,SR)
-SR_IND_Y   = $16 ; (i,SR),Y
-
-A_REG      = $17 ; A
-REL        = $18 ; .branch +127/-128
-REL_L      = $19 ; .branch +32767/-32768
-JMP_ABS    = $1A ; jump/call absolute
-JMP_LONG   = $1B ; jump/call long
-
-BLK        = $1C ; SRC,DEST
-
-
-IMP        = $7F ; implied
+IMP        = $00 ; implied
+DP         = $01 ; dp
+DP_X       = $02 ; dp,X
+DP_Y       = $03 ; dp,Y
+DP_IND     = $04 ; (dp)
+DP_X_IND   = $05 ; (dp,X)
+DP_IND_Y   = $06 ; (dp),Y
+DP_IND_L   = $07 ; [dp]
+DP_IND_L_Y = $08 ; [dp],Y
+ABS        = $09 ; addr
+ABS_X      = $0A ; addr,X
+ABS_Y      = $0B ; addr,Y
+ABS_IND    = $0C ; (addr)
+ABS_X_IND  = $0D ; (addr,X)
+ABS_IND_L  = $0E ; [addr]
+LONG       = $0F ; long
+LONG_X     = $10 ; long,X
+IMM        = $11 ; #i
+IMM_L      = $12 ; i
+IMM_A      = $13 ; #i based on M
+IMM_X      = $14 ; #i based on X
+SR         = $15 ; i,SR
+SR_IND     = $16 ; (i,SR)
+SR_IND_Y   = $17 ; (i,SR),Y
+A_REG      = $18 ; A
+REL        = $19 ; .branch +127/-128
+REL_L      = $1A ; .branch +32767/-32768
+JMP_ABS    = $1B ; jump/call absolute
+JMP_LONG   = $1C ; jump/call long
+BLK        = $1D ; SRC,DEST
 
 ; opcode type
 NOTHIN = $00
@@ -266,3 +256,35 @@ ROR_IT = $18
 PEI_IT = $19
 RELOC  = $1A
 RELOCL = $1B
+
+; registers
+INIDISP = $002100
+OAMDATA = $002104
+BGMODE = $002105
+MOSAIC = $002106
+BG1SC = $002107
+BG12NBA = $00210B
+BG1HOFS = $00210D
+BG1VOFS = $00210E
+BG2HOFS = $00210F
+BG2VOFS = $002110
+VMAIN = $002115
+VMADDR = $002116
+VMDATA = $002118
+CGADD = $002121
+CGDATA = $002122
+W12SEL = $002123
+TM = $00212C
+TS = $00212D
+TMW = $00212E
+TSW = $00212F
+CGWSEL = $002130
+CGADSUB = $002131
+SETINI = $002133
+WMDATA = $002180
+WMADDR = $002181
+WMADDL = $002181
+WMADDM = $002182
+WMADDH = $002183
+NMITIMEN = $004200
+RDNMI = $004210
