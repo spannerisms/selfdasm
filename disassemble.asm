@@ -1,67 +1,3 @@
-Vector_NMI:
-	REP #$30
-	PHA
-	PHY
-	PHX
-	PHB
-	PHD
-
-	LDA.w #$0000
-	TCD
-
-	SEP #$31
-	AND.l RDNMI
-
-	BIT.b DP.DO_DRAW
-	BPL .skip
-
-	JML .fast
-
-.fast
-	LDA.b #$80
-	PHA
-	PLB
-
-	STA.w INIDISP
-	STZ.b DP.DO_DRAW
-
-	REP #$20
-	LDA.b DP.VRAM_LOC
-	STA.w VMADDR
-
-	LDX.b #00
-
---	LDA.b DP.DRAW_BUFFER, X
-	STA.w VMDATA
-	INX
-	INX
-	CPX.b #64
-	BCC --
-
-	SEP #$30
-	LDA.b #$0F
-	STA.w INIDISP
-
-.skip
-	PLD
-	PLB
-	REP #$30
-	PLX
-	PLY
-	PLA
-	RTI
-
-Vector_COP:
-	RTI
-
-Vector_IRQ:
-	RTI
-
-Vector_Unused:
-Vector_Abort:
-Vector_BRK:
-	RTI
-
 Vector_Reset:
 	SEI
 	REP #$09
@@ -203,6 +139,71 @@ Disassemble_Start:
 	JSR RunVector_RESET
 
 	STP
+
+Vector_NMI:
+	REP #$30
+	PHA
+	PHY
+	PHX
+	PHB
+	PHD
+
+	LDA.w #$0000
+	TCD
+
+	SEP #$31
+	AND.l RDNMI
+
+	BIT.b DP.DO_DRAW
+	BPL .skip
+
+	JML .fast
+
+.fast
+	LDA.b #$80
+	PHA
+	PLB
+
+	STA.w INIDISP
+	STZ.b DP.DO_DRAW
+
+	REP #$20
+	LDA.b DP.VRAM_LOC
+	STA.w VMADDR
+
+	LDX.b #00
+
+--	LDA.b DP.DRAW_BUFFER, X
+	STA.w VMDATA
+	INX
+	INX
+	CPX.b #64
+	BCC --
+
+	SEP #$30
+	LDA.b #$0F
+	STA.w INIDISP
+
+.skip
+	PLD
+	PLB
+	REP #$30
+	PLX
+	PLY
+	PLA
+	RTI
+
+Vector_COP:
+	RTI
+
+Vector_IRQ:
+	AND.l RDNMI
+	RTI
+
+Vector_Unused:
+Vector_Abort:
+Vector_BRK:
+	RTI
 
 RunVector:
 .RESET
@@ -349,7 +350,7 @@ PushToStack:
 .REG_D
 	REP #$20
 	LDA.b DP.REG_D
-	BRA .push_1
+	BRA .push_2
 
 .PROGRAM_BANK
 	SEP #$20
@@ -387,8 +388,6 @@ PushToStack:
 ; for X and Y, REG_P.M will be tested in 16 bit
 ; so it will actually be looking at REG_P.X for N flag
 .test_px
-	JSR Sync_REG_P
-
 	BIT.b DP.REG_P.M
 	SEP #$20
 	BMI .push_1
@@ -446,7 +445,6 @@ PullFromStack:
 	RTS
 
 .REG_A
-	JSR Sync_REG_P
 	SEP #$20
 	BIT.b DP.REG_P.M
 	BPL ..do2
@@ -462,7 +460,6 @@ PullFromStack:
 	JMP SetFlags_from_A
 
 .REG_X
-	JSR Sync_REG_P
 	SEP #$20
 	BIT.b DP.REG_P.X
 	BPL ..do2
@@ -478,7 +475,6 @@ PullFromStack:
 	JMP SetFlags_from_X
 
 .REG_Y
-	JSR Sync_REG_P
 	SEP #$20
 	BIT.b DP.REG_P.X
 	BPL ..do2
@@ -652,10 +648,8 @@ DrawOpCode:
 
 --	LDX.w RDNMI
 	BPL --
-
 	LDX.b #$80
 	STX.w INIDISP
-
 	INC
 	INC
 	INC
@@ -1250,7 +1244,6 @@ GetEffectiveAddress:
 	STZ.b DP.SCRATCH+1
 	STA.b DP.SCRATCH+0
 
-
 .handle_IMP
 .handle_IMM
 .handle_IMM_L
@@ -1268,6 +1261,7 @@ GetEffectiveAddress:
 	JSR .get_DP
 	CLC
 	ADC.b DP.REG_X
+	STZ.b DP.SCRATCH+1
 	STA.b DP.SCRATCH+0
 	RTS
 
@@ -1306,7 +1300,7 @@ GetEffectiveAddress:
 .handle_DP_IND_Y_ARB
 	CLC
 	ADC.b DP.REG_Y
-	STA.b DP.SCRATCH+2
+	STA.b DP.SCRATCH+0
 	RTS
 
 .handle_DP_IND_L
@@ -1320,8 +1314,8 @@ GetEffectiveAddress:
 
 .get_ABS
 .handle_ABS
-	REP #$20
-	SEP #$11
+	REP #$21
+	SEP #$10
 	LDY.b #1
 	LDA.b [DP.ROM_READ], Y
 	STA.b DP.SCRATCH+0
@@ -1331,35 +1325,34 @@ GetEffectiveAddress:
 
 .handle_ABS_X
 	JSR .get_ABS
-	CLC
 	ADC.b DP.REG_X
 	STA.b DP.SCRATCH+0
 	RTS
 
 .handle_ABS_Y
 	JSR .get_ABS
-	CLC
 	ADC.b DP.REG_Y
 	STA.b DP.SCRATCH+0
 	RTS
+	
+.handle_SR
+	SEP #$10
+	LDY.b #$00
+	STY.b DP.SCRATCH+2
 
 .do_SR
 	REP #$21
 	SEP #$10
-	LDY.b #1
-	LDA.b [DP.ROM_READ], Y
+	LDA.b [DP.ROM_READ]
+	AND.w #$FF00
+	XBA
 	ADC.b DP.REG_SR
 	STA.b DP.SCRATCH+0
 	RTS
 
-.handle_SR
-	JSR .do_SR
-	LDY.b #$00
-	STY.b DP.SCRATCH+2
-	RTS
-
 .handle_SR_IND
 	JSR .do_SR
+	LDY.b DP.REG_DB
 	BRA .handle_ABS_IND_ARB
 
 .handle_SR_IND_Y
@@ -1422,20 +1415,19 @@ GetEffectiveAddress:
 	BRA .handle_ABS_IND_ARB_getaddr
 
 .handle_LONG
-	REP #$20
-	SEP #$11
-	LDY.b #1
-	LDA.b [DP.ROM_READ], Y
-	STA.b DP.SCRATCH+0
-
+	REP #$21
+	SEP #$10
 	LDY.b #2
+	LDA.b [DP.ROM_READ], Y
+	STA.b DP.SCRATCH+1
+
+	DEY
 	LDA.b [DP.ROM_READ], Y
 	STA.b DP.SCRATCH+1
 	RTS
 
 .handle_LONG_X
 	JSR .handle_LONG
-	CLC
 	ADC.b DP.REG_X
 	STA.b DP.SCRATCH+0
 	RTS
@@ -1465,8 +1457,8 @@ PrepareEffectiveRead:
 	BRA .not_register
 
 .notwram
-	CMP.w #$007F ; bank 7F is banned
-	BEQ .openbus ; use this isntead
+	CMP.w #$007F
+	BEQ .registercontinue ; check for writing to 7F
 
 	LDA.b DP.SCRATCH
 
@@ -1478,6 +1470,7 @@ PrepareEffectiveRead:
 	CMP.w #$4016 : BCC .openbus
 	CMP.w #$4017 : BEQ .registercontinue
 	CMP.w #$4200 : BCC .openbus
+	CMP.w #$4210 : BEQ .forcenegativeread
 	CMP.w #$4220 : BCC .registercontinue
 	CMP.w #$4300 : BCC .openbus
 	CMP.w #$4380 : BCS .openbus
@@ -1495,6 +1488,17 @@ PrepareEffectiveRead:
 	CMP.w #SAVE_Y : BCC .register
 
 	CMP.w #INC_IT : BCC .not_register
+	BRA .register
+
+.negative
+	dw $FFFF
+
+.forcenegativeread
+	LDA.w #.negative>>8
+	STA.b DP.SCRATCH+1
+
+	LDA.w #.negative>>0
+	STA.b DP.SCRATCH+0
 
 .openbus
 .register
