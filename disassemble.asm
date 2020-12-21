@@ -5,7 +5,7 @@ Vector_Reset:
 	JML.l Reset_Fast
 
 #Reset_Fast:
-	ROL.w $420D ; fast ROM
+	ROL.w $420D
 	STZ.w NMITIMEN
 
 	PEA.w $2100
@@ -18,7 +18,7 @@ Vector_Reset:
 	STX.b INIDISP
 	STX.b VMAIN
 
-	STZ.b CGADD ; black bg
+	STZ.b CGADD
 	STZ.b CGDATA
 	STZ.b CGDATA
 
@@ -31,6 +31,10 @@ Vector_Reset:
 	STA.b BG1SC
 	DEC
 	STA.b BG12NBA
+	STA.b TM
+	STA.b TS
+	STZ.b TMW
+	STZ.b TSW
 
 	STZ.b BG1HOFS
 	STZ.b BG1HOFS
@@ -38,19 +42,11 @@ Vector_Reset:
 	STZ.b BG1VOFS
 
 	STZ.b W12SEL
-
-	LDA.b #$01
-	STA.b TM
-	STA.b TS
-
-	STZ.b TMW
-	STZ.b TSW
-
 	STZ.b CGWSEL
 	STZ.b SETINI
 
 	REP #$20
-	STZ.b VMADDR ; reset write address for VRAM and WRAM
+	STZ.b VMADDR
 	STZ.b WMADDL
 
 #ZeroLand:
@@ -60,30 +56,24 @@ Vector_Reset:
 	LDA.w #ZeroLand+1
 	STA.b $4302
 	STA.b $4312
-	STA.b $4322
 
 	STX.b $4304
 	STX.b $4314
-	STX.b $4324
-
-	LDA.w #$1809
-	STA.b $4300 ; write type for VRAM
 
 	LDA.w #$8008
-	STA.b $4310 ; write type for WRAM
-	STA.b $4320
+	STA.b $4310
+
+	LDA.w #$1809
+	STA.b $4300
 
 	LDX.b #$03
 	STX.w $420B
 
-	; now bank 7F
-	LDX.b #$01
 	STX.w WMADDH
 	STZ.w WMADDR
 
-	LDX.b #$04
+	DEX
 	STX.w $420B
-
 
 	; now add the gfx in
 	LDA.w #GFX
@@ -187,6 +177,7 @@ Vector_NMI:
 .skip
 	PLD
 	PLB
+
 	REP #$30
 	PLX
 	PLY
@@ -197,7 +188,6 @@ Vector_COP:
 	RTI
 
 Vector_IRQ:
-	AND.l RDNMI
 	RTI
 
 Vector_Unused:
@@ -224,13 +214,12 @@ RunVector:
 	STA.b DP.REG_SR
 
 	SEP #$30
+	STA.b DP.REG_P.E
+
 	STZ.b DP.REG_DB
 
 	LDA.b #$30
 	STA.b DP.REG_P
-
-	LDA.b #$FF
-	STA.b DP.REG_P.E
 
 #Disassemble_Forever:
 	JSR Disassemble_Next
@@ -299,17 +288,18 @@ DisassembleVector:
 
 	LDA.w #$01FF
 	STA.b DP.REG_SR
+	BRA .start
 
-Disassemble_UntilRTI:
+#Disassemble_UntilRTI:
 .next
+	JSR Disassemble_Next
+
+.start
 	SEP #$30
 	LDA.b [DP.ROM_READ]
-	CMP.b #$40 : BEQ .done ; RTI
+	CMP.b #$40
+	BNE .next
 
-	JSR Disassemble_Next
-	BRA .next
-
-.done
 	JMP OnlyDrawOpcode
 
 Disassemble_Next:
@@ -1423,7 +1413,7 @@ GetEffectiveAddress:
 
 	DEY
 	LDA.b [DP.ROM_READ], Y
-	STA.b DP.SCRATCH+1
+	STA.b DP.SCRATCH+0
 	RTS
 
 .handle_LONG_X
@@ -1490,15 +1480,13 @@ PrepareEffectiveRead:
 	CMP.w #INC_IT : BCC .not_register
 	BRA .register
 
-.negative
-	dw $FFFF
-
 .forcenegativeread
-	LDA.w #.negative>>8
+	LDA.w #EMU_VECTOR_UNU>>8
 	STA.b DP.SCRATCH+1
 
-	LDA.w #.negative>>0
+	LDA.w #EMU_VECTOR_UNU>>0
 	STA.b DP.SCRATCH+0
+	BRA .not_register
 
 .openbus
 .register
@@ -1524,9 +1512,21 @@ PrepareEffectiveRead:
 	TAX
 	JMP (.exec_op, X)
 
+#EXEC_PEI_IT:
+	LDA.b DP.SCRATCH
+	JSR PushToStack_push_2
+	BRA .set_nothing
+
+#EXEC_RELOCL:
+	LDA.b DP.SCRATCH+1
+	STA.b DP.ROM_READ+1
+
+#EXEC_RELOC:
+	LDA.b DP.SCRATCH
+	STA.b DP.ROM_READ
+
 .set_nothing
-	SEP #$30
-	LDA.b #0
+	LDA.w #0
 
 .set_opcode
 	SEP #$30
@@ -1566,26 +1566,6 @@ PrepareEffectiveRead:
 	dw EXEC_PEI_IT
 	dw EXEC_RELOC
 	dw EXEC_RELOCL
-
-#EXEC_PEI_IT:
-	REP #$20
-	LDA.b DP.SCRATCH
-	JSR PushToStack_push_2
-	JMP .set_nothing
-
-#EXEC_RELOC:
-	REP #$30
-	LDA.b DP.SCRATCH
-	STA.b DP.ROM_READ
-	JMP .set_nothing
-
-#EXEC_RELOCL:
-	REP #$30
-	LDA.b DP.SCRATCH
-	STA.b DP.ROM_READ
-	SEP #$20
-	STA.b DP.ROM_READ+2
-	JMP .set_nothing
 
 IsolateAndExecuteSafely_0:
 	JSR IsolateAndExecuteSafely
@@ -1703,24 +1683,25 @@ IsolateAndExecute_IndexImmediate:
 .1byte
 	BRA IsolateAndExecute
 
+; worst case scenario here is we load $EAxx into X
 IsolateAndExecute_4:
-	SEP #$30
 	LDX.b #4
+	NOP
 	BRA IsolateAndExecute
 
 IsolateAndExecute_3:
-	SEP #$30
 	LDX.b #3
+	NOP
 	BRA IsolateAndExecute
 
 IsolateAndExecute_2:
-	SEP #$30
 	LDX.b #2
+	NOP
 	BRA IsolateAndExecute
 
 IsolateAndExecute_1:
-	SEP #$30
 	LDX.b #1
+	NOP
 	BRA IsolateAndExecute
 
 ; enters with X=number of bytes
