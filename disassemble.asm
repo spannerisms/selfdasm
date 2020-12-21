@@ -1481,17 +1481,19 @@ PrepareEffectiveRead:
 	BRA .register
 
 .forcenegativeread
-	LDA.w #EMU_VECTOR_UNU>>8
-	STA.b DP.SCRATCH+1
 
 	LDA.w #EMU_VECTOR_UNU>>0
 	STA.b DP.SCRATCH+0
-	BRA .not_register
+
+	LDA.w #EMU_VECTOR_UNU>>8
+	BRA .write_the_plus_one
 
 .openbus
 .register
 	LDA.w #$6666
 	STA.b DP.SCRATCH+0
+
+.write_the_plus_one
 	STA.b DP.SCRATCH+1
 
 .romspace
