@@ -3175,7 +3175,7 @@ this = 0
 	;   hand  - Disassembly handler
 	;
 	; This is also where we'll be using many of the "variables" we created
-	; in "defines.asm"
+	; in defines.asm.
 macro addop(op, name, char1, char2, addm, addt, hand)
 	pushpc
 
@@ -4014,7 +4014,7 @@ endmacro
 ; For instances like that, just make that color different in one of the slots,
 ; because these colors aren't actually going into the SNES.
 ; They're only used to build an indexed image the SNES can understand
-; to create palettes, you can use the macros we went over in "defines.asm"
+; to create palettes, you can use the macros we went over in defines.asm
 ; as I've done below.
 GFX:
 incbin "opcodesgfx.2bpp"
@@ -4033,5 +4033,5 @@ Palettes:
 %col4($000000, $F8F8F8, $0058D8, $000000)
 
 ; If you got here by reading through to the bottom, continue on
-; by going back to "main.asm"
-; Otherwise, continue where you left off
+; by going back to main.asm
+; Otherwise, continue where you left off.

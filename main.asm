@@ -103,7 +103,7 @@ org $800000
 
 ; INCSRC tells asar to load the file named and assemble it as code.
 ; It will look relative to where it's working.
-; In this case, it will look in the same folder as this file for "defines.asm".
+; In this case, it will look in the same folder as this file for defines.asm
 ; Go ahead and open that file and we'll go through it
 incsrc "defines.asm"
 
@@ -122,7 +122,7 @@ org $808000
 ; We'll use this at the end to see how much code and data we've written
 reset bytes
 
-; Before we look at the main program code, open up "header.asm" and continue there.
+; Before we look at the main program code, open up header.asm and continue there.
 incsrc "disassemble.asm"
 incsrc "header.asm"
 
@@ -139,4 +139,4 @@ print "Size: ", bytes, " bytes"
 org $83FFFF
 db 0
 
-; To finish up, let's move to "build.bat"
+; To finish up, let's move to build.bat

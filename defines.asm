@@ -19,7 +19,7 @@
 ; and it would output
 ;   $219D
 ;
-; The dollar sign ($) is what we use to denote that a number is base-16
+; The dollar sign ($) is what we use to denote that a number is base-16.
 ; In other languages, you may see the prefix 0x instead.
 ; And in older assembly source codes or references, you may see the suffix H
 ; So all of these are the same:
@@ -27,7 +27,7 @@
 ;  0x1234
 ;    1234H
 ; And all of them are equal to 4660 decimal.
-; To write a decimal number, you simply omit the prefix.
+; To write a decimal number, you simply omit any prefix.
 ;
 ; Binary numbers can be written with the prefix %
 ; I won't be using many binary numbers in this tutorial, but I will at least once
@@ -72,8 +72,8 @@ endmacro
 ; Next, we'll be defining a STRUCT.
 ; Structs are, in my opinion, one of the most useful features asar provides.
 ; They allow you to essentially create variables by designating memory.
-; Memory can also be designated with defines (more on those in a moment)
-; But that requires you to constantly manage each address individually.
+; Memory can also be designated with defines (more on those in a moment),
+; but that requires you to constantly manage each address individually.
 ; This can be a massive pain, especially when refactoring.
 ; Instead, we can define a struct like this:
 ;   struct NAME ADDRESS
@@ -87,17 +87,17 @@ endmacro
 ; More on direct page later.
 ; Each "variable" here will be explained as we get to them, but here's a brief overview:
 struct DP $7E0000
-	; This will be general scratch space for performing calculations and such
+	; This will be general scratch space for performing calculations and such.
 	; We should consider it very volatile and only store temporary values here.
 	.SCRATCH: skip 4
 
-	; This address will flag draw updates for our draw routine
+	; This address will flag draw updates for our draw routine.
 	.DO_DRAW: skip 1
 
-	; And when we do draw things, this will tell us where
+	; And when we do draw things, this will tell us where.
 	.VRAM_LOC: skip 2
 
-	; And this will be used for the color of the text
+	; And this will be used for the color of the text.
 	.DRAW_COLOR: skip 2
 
 	; This will hold the address in ROM we're currently disassembling
@@ -273,11 +273,11 @@ struct DP $7E0000
 
 	; SR is our STACK REGISTER, or STACK POINTER.
 	; This points to the first open spot in the stock.
-	; The stack is always in bank00
+	; The stack is always in bank00.
 	.REG_SR: skip 2
 	; Except...
-	; We want to "emulate" memory to prevent interference
-	; So we will write $7F to this address at some point.
+	; We want to "emulate" memory to prevent interference.
+	; We'll write $7F to this address at some point.
 	; That way our emulated stack is in the disassembly's bank
 	.REG_SR_BANK: skip 1
 
@@ -285,10 +285,10 @@ struct DP $7E0000
 	; we can, as the name implies, execute them as code
 	.EXECUTE: skip 5
 
-	; This will be our draw buffer (as it says)
-	; It's 64 bytes total, so it can hold 32 tiles
+	; This will be our draw buffer (as it says).
+	; It's 64 bytes total, so it can hold 32 tiles.
 	; It's been split into segments so that we can address each
-	; part of the buffer 
+	; part of the buffer in a cleaner manner, without magic numbers.
 	.DRAW_BUFFER:
 	.DRAW_BUFFER.EMPTY_1: skip 2
 	.DRAW_BUFFER.ADDR: skip 6
@@ -309,7 +309,7 @@ endstruct
 
 ; Labels can be defined with
 ;   NAME = ADDRESS
-; Here we've done that for important hardware registers we'll be using
+; Here we've done that for important hardware registers we'll be using.
 INIDISP = $002100
 OAMDATA = $002104
 BGMODE = $002105
@@ -347,10 +347,10 @@ RDNMI = $004210
 ; I often do this to cut down on my typing.
 ; For a proper define, you use:
 ;  !NAME = VALUE
-; And value can be anything, including strings
-; Using labels as defines as we are here can only accept numbers
-; They also can't be changed
-; Nor can they be used to assign other values
+; And value can be anything, including strings.
+; Using labels as defines as we are here can only accept numbers.
+; They also can't be changed.
+; Nor can they be used to assign other values.
 ; Be wary of this, and try to stick to using defines.
 
 ; Here we'll just be listing a bunch of tilemap values for various phrases.
@@ -372,8 +372,10 @@ COM_Y   = $2C0A ; ,Y
 COM_S   = $2C0B ; ,S
 P_COM_Y = $2C0C ; ),Y
 B_COM_Y = $2C0D ; ],Y
-A_IMP   = $2C0E
+A_IMP   = $2C0E ; A
 
+; All of these will be the characters in the 2 letter name.
+; _ will indicate a space.
 A_ = $10
 B_ = $11
 C_ = $12
@@ -397,6 +399,9 @@ CA = $6D
 LA = $6E
 RA = $6F
 
+; These lowercase letters will be for the .b, .w, and .l suffixes
+; used in asm files to indicate operand size.
+; We don't have the space to use the period, but we can still add a letter.
 Ab = $20
 Bb = $21
 Cb = $22
@@ -482,9 +487,7 @@ S_COL = $74
 D_COL = $75
 B_COL = $76
 
-STR = $80
-
-; These are used for identifying what type of addressing we're disassembling
+; These are used for identifying what type of addressing we're disassembling.
 IMP        = $00 ; implied
 DP         = $01 ; dp
 DP_X       = $02 ; dp,X
@@ -515,8 +518,7 @@ JMP_ABS    = $1A ; jump/call absolute
 JMP_LONG   = $1B ; jump/call long
 BLK        = $1C ; SRC,DEST
 
-
-; And here we're defining various opcode types
+; And here we're defining various opcode types.
 NOTHIN = $00
 READ_A = $01
 AND_A  = $02
@@ -546,4 +548,4 @@ PEI_IT = $19
 RELOC  = $1A
 RELOCL = $1B
 
-; Now that we've finished this file, head back to "main.asm"
+; Now that we've finished this file, head back to main.asm
