@@ -23,14 +23,40 @@
 ; SNES Features by Retro Game Mechanics Explained
 ; This is a great series for learning the basics.
 ; It's so useful, that I am going to proceed through this tutorial assuming
-; that you have already watched it
+; that you have already watched it, even if you can't fully understand it all yet.
 ;
-; In addition to that series, I will also assume general programming knowledge.
-; You will need to be familiar with concepts such as
-;   hexadecimal
-;   bitwise math
-;   integer overflow
-;   flags
+; For 65816 reference, I recommend this page:
+; <https://softpixel.com/~cwright/sianse/docs/65816NFO.HTM>
+;
+; Another excellent resource is the SNES Dev Manual:
+; <https://archive.org/details/SNESDevManual/book1>
+; I will not be explaining hardware registers in much detail
+; This document does an excellent job of introducing them
+; along with other SNES specifications
+;
+; We will be using the assembler asar. which you can find here:
+; <https://github.com/RPGHacker/asar/releases/latest>
+;
+; You don't need to be intimately familiar with it, but don't hesitate
+; to check its documentation if something isn't fully explained in the tutorial:
+; <https://rpghacker.github.io/asar/manual/>
+;
+; In addition to those resources, I will assume some general programming knowledge.
+; You will need to be familiar with concepts such as:
+;    hexadecimal numbers
+;    bitwise math and shifts
+;    integer overflow
+;    stacks
+;    flags
+;    pointers
+;
+; My goal here is to provide less of a "what" and more of a "why" or "how".
+; I'll assume that my audience has already at least glanced at assembly resources
+; and documented related to Super Nintendo development. I will provide some
+; guidance on the basics, but that will not be my focus. Rather, I want to
+; create a program that does a complex task and explain its program flow
+; to create an example of the thought process and decision making behind
+; creating a program in this low-level environment.
 ;
 ; I would like to make it clear that this should not be your first stop
 ; in learning assembly. I am going to assume you are competent enough to
@@ -41,14 +67,15 @@
 ; basic concepts underlying them.
 ;
 ; One thing you should notice is that all this tutorial text is on a line
-; beginning with a semicolon. Semicolons denote comments.
-; Anything from the semicolon to the end of the line is ignored for assembly.
+; beginning with a semicolon. Semicolons denote comments in assembly.
+; All comments go until the end of the line.
+; Assembly does not have block comments.
 ;===============================================================================
 
 ; The first thing we want to do is define the mapping mode
 ; We'll be using lorom for 2 reasons:
-;  It's the simplest and easiest to understand.
-;  This ROM will be small. It will fit entirely in bank00
+;   It's the simplest and easiest to understand.
+;   This ROM will be small. It will fit entirely in bank00
 lorom
 
 ; Next we want to specify our architecture.
@@ -59,10 +86,11 @@ arch 65816
 ; the assembler it obsoleted
 ; By default, asar does math operations from left to right, always
 ; this line tells it to take order of operations into account
+; This will enable the normal PEMDAS you should be already familiar with.
 math pri on
 
-; org statements tell us to assemble at a specific address.
-; This address is known as the "Program Counter".
+; ORG STATEMENTS tell us to assemble at a specific address.
+; This address will move what is known as the PROGRAM COUNTER.
 ; This phrase will mean both the code or data currently being written by asar
 ; and the code being executed by the CPU.
 ; In this case, the org is putting us at $80:0000 in ROM
@@ -73,7 +101,7 @@ math pri on
 ; in the file on accident. Writing code to WRAM like that will throw an error.
 org $800000
 
-; incsrc tells asar to load the file named and assemble it as code.
+; INCSRC tells asar to load the file named and assemble it as code.
 ; It will look relative to where it's working.
 ; In this case, it will look in the same folder as this file for "defines.asm".
 ; Go ahead and open that file and we'll go through it
@@ -105,9 +133,10 @@ incsrc "header.asm"
 ; writing since the last time we reset it
 print "Size: ", bytes, " bytes"
 
-; Since our rom is 128k and lorom, it will have 4 banks of 32kB each
+; Since our ROM is 128kB and lorom, it will have 4 banks of 32kB each
 ; Some emulators are picky about the size, so we're going to write a
 ; dummy byte to the very last location in ROM.
-; If we didn't do this, our new code would
 org $83FFFF
 db 0
+
+; To finish up, let's move to "build.bat"

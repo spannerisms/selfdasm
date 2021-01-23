@@ -60,7 +60,7 @@ db $01
 ; We're setting it to $33 for the latest specs.
 db $33
 
-; This is our ROM's version. This is 1.0, so we'll leave it at $00
+; This is our ROM version. This is 1.0, so we'll leave it at $00
 db $00
 
 ; This is the checksum used to validate the ROM data.
@@ -71,6 +71,9 @@ dw #$FFFF ; checksum
 dw #$0000 ; inverse checksum
 
 ; These are our interrupt vectors.
+; A vector is to code as a pointer is to data.
+; "Pointer" can be used to describe vectors, but the term "vector"
+; is more precise, and it is what will be used throughout this tutorial.
 ; Whenever an interrupt occurs, these are looked at to determine
 ; where in bank00 to begin executing code for the interrupt handler.
 ; There are 2 sets, native and emulation mode.

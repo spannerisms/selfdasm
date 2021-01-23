@@ -1,16 +1,15 @@
 ;===============================================================================
 ; Hey! You made it!
 ;===============================================================================
-
 ; The first thing defined in this file is a function.
 ; functions in asar convert parameters to a number output.
 ; This jumbled mess is what I use in all my assembly to create colors.
 ; On the SNES, colors are 5 bit red, green, and blue values in a 16-bit number.
 ; Oh ya, 16-bit numbers. Let's get some basic terminology situated now:
-;   byte - 8 bits
-;   word - 16 bits
-;   long - 32 bits
-; I'll be covering terminology as it comes up.
+;   BYTE - 8 bits
+;   WORD - 16 bits
+;   LONG - 32 bits
+; I'll be covering terminology as it comes up. And will put terms in ALL CAPS.
 ; All this function does is take a color defined in standard HEX format (#RRGGBB)
 ; and turns it into a value the SNES can work with
 ; We can't really make use of white space, so functions can be messy.
@@ -35,7 +34,7 @@
 ; just to give you an example.
 function hexto555(h) = ((((h&$FF)/8)<<10)|(((h>>8&$FF)/8)<<5)|(((h>>16&$FF)/8)<<0))
 
-; Next up are macros.
+; Next up are MACROS.
 ; Macros are very powerful, but, with great power, comes great responsibility.
 ; My stance is that macros are perhaps the most useful tool for data organization.
 ; And while they can be used for code structure, I strongly recommend you avoid that.
@@ -70,6 +69,7 @@ macro col4(h1,h2,h3,h4)
 	dw hexto555(<h4>)
 endmacro
 
+; Next, we'll be defining a STRUCT.
 ; Structs are, in my opinion, one of the most useful features asar provides.
 ; They allow you to essentially create variables by designating memory.
 ; Memory can also be designated with defines (more on those in a moment)
@@ -85,15 +85,11 @@ endmacro
 ;
 ; This struct will be named DP (for Direct Page) and located at $0000 in bank00.
 ; More on direct page later.
-; Each variable here will be explained as we get to them, but here's a brief overview:
+; Each "variable" here will be explained as we get to them, but here's a brief overview:
 struct DP $7E0000
 	; This will be general scratch space for performing calculations and such
 	; We should consider it very volatile and only store temporary values here.
 	.SCRATCH: skip 4
-
-	; This will be more scratch space
-	; but specifically for performing tests on values
-	.TEST: skip 3
 
 	; This address will flag draw updates for our draw routine
 	.DO_DRAW: skip 1
@@ -121,7 +117,7 @@ struct DP $7E0000
 	.ROM_READ.h: skip 1
 	.ROM_READ.b: skip 1
 
-	; Here's where we'll store the Processor Status register (P)
+	; Here's where we'll store the PROCESSOR STATUS REGISTER (P)
 	; We'll also store each flag inside of P individually, for easy testing.
 	; Let's go over each flag now:
 	; The P flag is layed out like this:
@@ -132,7 +128,7 @@ struct DP $7E0000
 	; When we use the individually referenced flags, we'll only consider bit7
 	.REG_P: skip 1
 
-	; The N flag is used to flag "negative" results
+	; The N FLAG is used to flag "NEGATIVE" results
 	; Values are neither signed nor unsigned.
 	; Or rather, which they are is up to you and how you use them.
 	; But this flag facilitates signed arithmetic.
@@ -141,7 +137,7 @@ struct DP $7E0000
 	; The negative flag also flags a < b when comparing a to b
 	.REG_P.N: skip 1
 
-	; The V flag is used to flag overflow in signed arithmetic
+	; The V FLAG is used to flag OVERFLOW in signed arithmetic
 	; This is different and distinct from integer overflow
 	; Essentially, this means that the result went negative or positive
 	; when it wasn't supposed to.
@@ -156,20 +152,20 @@ struct DP $7E0000
 	; The V flag will be reset.
 	.REG_P.V: skip 1
 
-	; The M flag decides the size of our accumulator
+	; The M FLAG decides the size of our ACCUMULATOR
 	; When M is set, almost all operations using the accumulator will be done in 8-bit
 	; When M is reset, these operations will be 16-bit.
 	; There are exceptions, and I will cover them later.
 	.REG_P.M: skip 1
 
-	; The X flag decides to size of our index registers, X and Y
+	; The X FLAG decides to size of our INDEX REGISTERS, X and Y
 	; Like M, when set, these will be 8 bit. When reset, they will be 16-bit.
 	; Unlike M, however, setting the index registers to 8-bit will also
 	; set their top byte to $00.
 	; With the accumulator, the top byte is preserved, but mostly ignored.
 	.REG_P.X: skip 1
 
-	; The D flag indicates we should use binary coded decimal or BCD.
+	; The D FLAG indicates we should use BINARY CODED DECIMAL or BCD.
 	; When BCD is enabled, each byte is split into 2 digits from 0-9.
 	; For example, $1234 will denote the decimal value 1234.
 	; It won't be actually be equal to that decimal value, but that is what
@@ -177,19 +173,19 @@ struct DP $7E0000
 	; This tutorial will not be using BCD.
 	.REG_P.D: skip 1
 
-	; The I flag tells the CPU to ignore most interrupts.
-	; The only exception to this is NMI, the Non-Maskable (it's in the name).
+	; The I FLAG tells the CPU to ignore most interrupts.
+	; The only exception to this is NMI, the Non-Maskable one (it's in the name).
 	; When set, any hardware interrupt is ignored.
 	.REG_P.I: skip 1
 
-	; The Z flag indicates a result of 0.
+	; The Z FLAG indicates a result of ZERO (0).
 	; When a value is loaded or manipulated and the result is exactly 0
 	; then the Z flag will be set.
 	; For any other value, the Z flag will be reset.
 	; When comparing numbers, the Z flag indicates the numbers are equal.
 	.REG_P.Z: skip 1
 
-	; The C flag indicates the status of the carry.
+	; The C FLAG indicates the status of the CARRY.
 	; The carry serves multiple purposes.
 	; For arithmetic, this is the carry or borrow in addition or subtraction.
 	; It essentially flags integer overflow, but can be used to extend arithmetic
@@ -220,7 +216,7 @@ struct DP $7E0000
 	; Being clever with and mindful of the carry flag is important.
 	.REG_P.C: skip 1
 
-	; The E flag is used to tell the processor to run in 6502 emulation mode
+	; The E FLAG is used to tell the processor to run in 6502 EMULATION MODE.
 	; This flag is actually hidden.
 	; And it gives the carry flag a third purpose.
 	; The E flag can only be accessed by swapping it with the carry.
@@ -233,16 +229,23 @@ struct DP $7E0000
 	.REG_P.B: skip 1
 
 	; Here's where we'll hold each register
-	; This is our accumulator, A
+	; This is our ACCUMULATOR, A.
+	; The accumulator is our most robust register for
+	; loading, storing, and manipulating values.
 	.REG_A: skip 2
 
-	; This is our X index register
+	; This is our X INDEX REGISTER.
+	; Our index registers can load and store values much the same was as
+	; the accumulator, but they have fewer ways of doing so. They also cannot
+	; be used to perform arithmetic or bitwise functions.
+	; The functionality they have that the accumulator lacks is being used as
+	; an offset for an operand address to read values more dynamically.
 	.REG_X: skip 2
 
-	; This is our Y index register
+	; This is our Y INDEX REGISTER.
 	.REG_Y: skip 2
 
-	; This is our direct page address
+	; This is our DIRECT PAGE ADDRESS.
 	; Direct page is an addressing mode that tells you where in bank00
 	; 8-bit addresses are read from.
 	; While it's called direct *page*, it actually can be defined anywhere.
@@ -255,7 +258,7 @@ struct DP $7E0000
 	; It's best to avoid this when possible
 	.REG_D: skip 2
 
-	; DB is our Data Bank. It is distinct from the Program Bank.
+	; DB is our DATA BANK. It is distinct from the PROGRAM BANK.
 	; While the program bank tells us where to handle code
 	; The data bank tells us where to handle data.
 	; Examples:
@@ -268,7 +271,7 @@ struct DP $7E0000
 	; Both of those instructions will use the program bank for reading.
 	.REG_DB: skip 1
 
-	; SR is our Stack Register, or Stack Pointer.
+	; SR is our STACK REGISTER, or STACK POINTER.
 	; This points to the first open spot in the stock.
 	; The stack is always in bank00
 	.REG_SR: skip 2
@@ -278,15 +281,21 @@ struct DP $7E0000
 	; That way our emulated stack is in the disassembly's bank
 	.REG_SR_BANK: skip 1
 
-	; This is where we will write many instructions so that we can
-	; as the name implies
-	; execute them as code
+	; This is where we will write many instructions so that
+	; we can, as the name implies, execute them as code
 	.EXECUTE: skip 5
 
 	; This will be our draw buffer (as it says)
-	; It's 22 bytes, so it can hold 11 characters
-	; Following it are buffers for drawing each register too
-	.DRAW_BUFFER: skip 24
+	; It's 64 bytes total, so it can hold 32 tiles
+	; It's been split into segments so that we can address each
+	; part of the buffer 
+	.DRAW_BUFFER:
+	.DRAW_BUFFER.EMPTY_1: skip 2
+	.DRAW_BUFFER.ADDR: skip 6
+	.DRAW_BUFFER.COLON: skip 2
+	.DRAW_BUFFER.INSTRUCTION: skip 4
+	.DRAW_BUFFER.OPERAND: skip 8
+	.DRAW_BUFFER.EMPTY_2: skip 2
 	.DRAW_BUFFER.A: skip 6
 	.DRAW_BUFFER.X: skip 6
 	.DRAW_BUFFER.Y: skip 6
@@ -294,6 +303,7 @@ struct DP $7E0000
 	.DRAW_BUFFER.S: skip 6
 	.DRAW_BUFFER.D: skip 6
 	.DRAW_BUFFER.B: skip 4
+	.DRAW_BUFFER.EMPTY_3: skip 2
 
 endstruct
 
@@ -343,7 +353,7 @@ RDNMI = $004210
 ; Nor can they be used to assign other values
 ; Be wary of this, and try to stick to using defines.
 
-; Here we'll just be listing a bunch of tilemap values for various phrases
+; Here we'll just be listing a bunch of tilemap values for various phrases.
 COL   = $3001 ; :
 DOL   = $3002 ;  $
 DOL_P = $3003 ; ($
@@ -536,4 +546,4 @@ PEI_IT = $19
 RELOC  = $1A
 RELOCL = $1B
 
-; Now that we've finished this file, head back to main.asm
+; Now that we've finished this file, head back to "main.asm"
