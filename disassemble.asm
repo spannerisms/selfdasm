@@ -53,7 +53,7 @@ Vector_Reset:
 	; There's more terminology to cover as we move on regarding addressing modes
 	;   DIRECT PAGE, DP - 8-bit (1 byte) operand used with the D register and in bank 00
 	;   ABSOLUTE - 16-bit (2 byte) operand, forming an address with the Data Bank
-	;   long - 24-bit (3 byte) operand, explicit and as-is
+	;   LONG - 24-bit (3 byte) operand, explicit and as-is
 	;   IMMEDIATE - taken from the address following the opcode (pontification below)
 	;   IMPLIED - functions without an operand
 	;   INDIRECT - address is contained in the contents of the operand's address
@@ -968,9 +968,21 @@ PushToStack:
 
 	; The following 4 register pushes are very simple.
 	; Based on what was described above, you should be able to understand them.
+	; For these first 3, we're not sure whether the accumulator is 8- or 16-bit,
+	; but in both cases, we'll be loading what we actually care about in the
+	; low byte of A. The .push_1 branch will take care of changing to 8-bit mode.
 .REG_P
-	SEP #$20
 	LDA.b DP.REG_P
+	BRA .push_1
+
+	; Called by PHK
+.PROGRAM_BANK
+	LDA.b DP.ROM_READ.b
+	BRA .push_1
+
+	; Called by PHB
+.DATA_BANK
+	LDA.b DP.REG_DB
 	BRA .push_1
 
 	; Called by PHD
@@ -978,18 +990,6 @@ PushToStack:
 	REP #$20
 	LDA.b DP.REG_D
 	BRA .push_2
-
-	; Called by PHK
-.PROGRAM_BANK
-	SEP #$20
-	LDA.b DP.ROM_READ.b
-	BRA .push_1
-
-	; Called by PHB
-.DATA_BANK
-	SEP #$20
-	LDA.b DP.REG_DB
-	BRA .push_1
 
 	; These registers all require some extra trickery to account for bit mode.
 	; Here we'll be loading the value first, then using a shared bit of code
@@ -1021,6 +1021,7 @@ PushToStack:
 
 	; We want to be in M=8bit either way after this
 	SEP #$20
+
 	; The N flag holds the status of the flag we were testing.
 	; But SEP and REP only modify the bits specified in the operand.
 	; So N will be what it was before the SEP #$20.
@@ -1138,12 +1139,12 @@ PullFromStack:
 .DATA_BANK
 	JSR .pull_1
 	STA.b DP.REG_DB
-	BRA SetFlags_from_PreloadedValue
+	BRA SetFlags_from_Current
 
 .REG_D
 	JSR .pull_2
 	STA.b DP.REG_D
-	BRA SetFlags_from_PreloadedValue
+	BRA SetFlags_from_Current
 
 	; For REG_A, REG_X, and REG_Y
 	; we'll use a couple parameters to share functionality in our testing:
@@ -1187,7 +1188,7 @@ PullFromStack:
 
 ..save
 	STA.b DP.REG_A, X
-	BRA SetFlags_from_PreloadedValue
+	BRA SetFlags_from_Current
 
 ;===============================================================================
 
@@ -1206,48 +1207,66 @@ SetFlags:
 
 	; Then we'll use that bitmode to load the proper size of REG_X
 	; Once we've done that, we can handle it like every other flag setting.
+	; Below, we'll be using stack operations with A to retrieve these flags
+	; again, but since we already have them here, we should skip ahead.
 	LDX.b DP.REG_X
+	BRA .continue
 
 	; All other entry points we need for this routine will already have
-	; the N and Z flags set from a previous operation.
+	; the value we want to set N and Z with from a previous operation.
 	; So we'll use those flags in our actual processor as is to set
 	; the N and Z flags in the "emulated" processor status register.
-.from_PreloadedValue
-	; We'll start by saving the P flag twice.
-	; We do this so that we can remember the N and Z flags later.
-	; We enter 8-bit accumulator now because we'll need to stay there
-	; for further tests. If we happen to enter this with 16-bit A,
-	; we don't want the upcoming PLP for the N and Z tests to bring us
-	; back to 8-bit accumulator.
+.from_Current
+	; The N and Z flags may not match the value we loaded, though.
+	; We can push and pull A to set them to what they should be.
+	PHA
+	PLA
+
+	; Next, we'll be saving P so we can pull the flags back in A.
+.continue
 	SEP #$20
 	PHP
-	PHP
 
-	; Now we'll collect the emulated P and mask out the N and Z flags.
-	LDA.b DP.REG_P
-	AND.b #$7D
+	; We'll set the flags in REG_P using TRB and TSB.
+	; TRB, for Test and Reset Bits, does 2 things:
+	;    It performs a logical AND between A and the operand address
+	;    It resets all bits in the operand address that are set in A.
+	; The AND tests sets the N and Z flags of the processor status register.
+	; The opposite is TSB, for Test and Set Bits.
+	; It performs the same AND test but will set any bit in the operand address
+	; if that bit is set in the accumulator.
+	; In both operations, the result is discarded and bits reset in the
+	; accumulator have no effect on the contents of the operand.
+	;
+	; First, we use #$82 to mask out bits 7 and 1 of DP.REG_P
+	; For our purposes, this behaves the same as the following code:
+	;    LDA.b #$82
+	;    AND.b DP.REG_P
+	;    STA.b DP.REG_P
+	; but it does so in 1 less instruction.
+	; Another benefit of the TRB and TSB instructions is that they do not
+	; affect the contents of the accumulator. If, for example, we had multiple
+	; copies of REG_P, TRB would allow us to reset them without reading them all.
+	; Like so:
+	;    LDA.b #$82
+	;    TRB.b DP.REG_P1
+	;    TRB.b DP.REG_P2
+	; Doing this with LDA : AND : STA would require those 3 instructions for both
+	; REG_P1 and REG_P2
+	LDA.b #$82
+	TRB.b DP.REG_P
 
-	; We'll pull P once to get the N flag.
-	PLP
+	; We'll pull P back into A and mask out everything except the N and Z flags.
+	; This time, we're doing the opposite of what we did above.
+	; We mask out flags in P to only allow bits 7 or 1 to be set, then use TSB
+	; to set those bits in REG_P. This does the same as the following code:
+	;    LDA.b #$82
+	;    ORA.b DP.REG_P
+	;    STA.b DP.REG_P
+	PLA
+	AND.b #$82
+	TSB.b DP.REG_P
 
-	; If the N flag is reset, we'll have a positive number,
-	; and there's nothing further we need to do.
-	BPL ++
-
-	; Otherwise, add in the bit for N.
-	ORA.b #$80
-
-	; Now do the same for the Z flag.
-	; It's a bit counterintuitive at first glance,
-	; but in this case, if Z=1 then the value is 0.
-++	PLP
-	BNE ++
-
-	; Add in the bit for Z
-	ORA.b #$02
-
-	; And now we should save our recalculated REG_P.
-++	STA.b DP.REG_P
 	RTS
 
 ;===============================================================================
@@ -1352,14 +1371,6 @@ DrawOpCode:
 	RTS
 
 .dodraw
-	; We'll begin by grabbing the opcode and multiplying it by 2.
-	; This will be used to index some data tables later.
-	REP #$30
-	LDA.b [DP.ROM_READ]
-	AND.w #$00FF
-	ASL
-	STA.b DP.SCRATCH
-
 	; We want to start on the second row of the tile map each time
 	; and we initialied the address to $0000.
 	; As each row is 32 tiles and 1 tile is 2 bytes, we +$0040 each time.
@@ -1367,6 +1378,7 @@ DrawOpCode:
 	; Rather than writing $0020, I've put $0040, the address we want, and >>1
 	; which shifts the value right once.
 	; This way, it is unambiguous where I want to be writing.
+	REP #$30
 	LDA.b DP.VRAM_LOC
 
 	; I've skipped a CLC for this ADC because I can guarantee the carry is clear.
@@ -1541,9 +1553,12 @@ DrawOpCode:
 	LDA.w #$2001
 	STA.b DP.DRAW_BUFFER.COLON
 
-	; This is loading the value we saved earlier,
-	; The opcode shifted once to create an index.
-	LDY.b DP.SCRATCH
+	; We'll grab the opcode now and multiplying it by 2.
+	; This will be used to index some data tables.
+	LDA.b [DP.ROM_READ]
+	AND.w #$00FF
+	ASL
+	TAY
 
 	; The OpCode data tables will be explained more later,
 	; but the first 2 bytes in it are the tile ids of the instruction.
@@ -3477,7 +3492,7 @@ endmacro
 %addop($3B, "OP_3B_TSC", TS_, C_, IMP, NOTHIN, this)
 	LDA.b DP.REG_SR
 	STA.b DP.REG_A
-	JSR SetFlags_from_PreloadedValue
+	JSR SetFlags_from_Current
 	JMP NEXT_OP_1
 
 %addop($3C, "OP_3C_BIT_ABS_X", BI, Tw, ABS_X, BIT_A, IsolateAndExecuteSafely_3)
