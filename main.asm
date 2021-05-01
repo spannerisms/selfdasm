@@ -118,6 +118,7 @@ cleartable
 ; Here's a proper org statement
 ; We'll be writing code starting at $80:8000
 org $808000
+
 ; This statement resets the counter for how many bytes have been written to ROM.
 ; We'll use this at the end to see how much code and data we've written
 reset bytes

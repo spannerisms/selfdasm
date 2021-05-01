@@ -545,7 +545,7 @@ Vector_NMI:
 	LDA.b DP.VRAM_LOC
 	STA.w VMADDR
 
-	; Ee want to copy the buffer 2 bytes at a time into VRAM.
+	; We want to copy the buffer 2 bytes at a time into VRAM.
 	; While this could be done with DMA, setting up small transfers can be tedious.
 	; We aren't desperate for time efficiency here, so we'll do it manually.
 	LDX.b #00
